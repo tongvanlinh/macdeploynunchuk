@@ -49,5 +49,26 @@ jobs:
           cp /usr/local/lib/libsqlcipher.a ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
           cmake -E make_directory ${{runner.workspace}}/build
           cd build
-          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1g -DCMAKE_PREFIX_PATH=/usr/local/Cellar/qt/5.14.1/lib/cmake
+          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1g -DCMAKE_PREFIX_PATH=/usr/local/Cellar/qt/5.15.1/lib/cmake
           cmake --build . --config $BUILD_TYPE -j8
+          
+      - name: Deploy Dmg
+        working-directory: ${{runner.workspace}}/build
+        run: |
+          export PATH="/usr/local/Cellar/qt/5.15.1/bin:$PATH"
+          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/1.2.1/hwi-1.2.1-mac-amd64.tar.gz" -O - | tar -xz
+          mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
+          mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
+          mv nunchuck-client-qt.app Nunchuk.app
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          macdeployqt Nunchuk.app -dmg
+      
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+
+      - name: Upload Artifact
+        uses: 'actions/upload-artifact@v2'
+        with:
+          name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
+          path: ${{runner.workspace}}/build/Nunchuk.dmg
