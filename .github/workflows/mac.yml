@@ -14,6 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
  
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+        
+      - name: Install dependencies
+        run: brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite
+
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
         env:
@@ -22,11 +29,6 @@ jobs:
           git clone https://bakaoh:$GITLAB_AT@gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --depth 1 --init --recursive
-
-      - name: Install dependencies
-        run: |
-          xcode-select --install
-          brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite
 
       - name: Cache libnunchuk contrib
         uses: actions/cache@v2
