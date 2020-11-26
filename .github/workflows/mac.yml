@@ -49,8 +49,8 @@ jobs:
           cp /usr/local/lib/libsqlcipher.a ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
           cmake -E make_directory ${{runner.workspace}}/build
           cd build
-          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1h -DCMAKE_PREFIX_PATH=/usr/local/Cellar/qt/5.15.1/lib/cmake
-          cmake --build . --config $BUILD_TYPE -j8
+          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1h -DCMAKE_PREFIX_PATH=/usr/local/Cellar/qt/5.15.1/lib/cmake
+          cmake --build . --config Release -j8
           
       - name: Deploy Dmg
         working-directory: ${{runner.workspace}}/build
