@@ -24,7 +24,9 @@ jobs:
           git submodule update --depth 1 --init --recursive
 
       - name: Install dependencies
-        run: brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite
+        run: |
+          xcode-select --install
+          brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite
 
       - name: Cache libnunchuk contrib
         uses: actions/cache@v2
