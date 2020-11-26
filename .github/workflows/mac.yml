@@ -40,3 +40,14 @@ jobs:
           ./autogen.sh
           ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb
           make -j8
+
+      - name: Build nunchuk-qt
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          mkdir ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs
+          cp /usr/local/lib/libsqlcipher.a ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
+          cmake -E make_directory ${{runner.workspace}}/build
+          cd build
+          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DOPENSSL_ROOT_DIR=/usr/local/Cellar/openssl@1.1/1.1.1g -DCMAKE_PREFIX_PATH=/usr/local/Cellar/qt/5.14.1/lib/cmake
+          cmake --build . --config $BUILD_TYPE -j8
