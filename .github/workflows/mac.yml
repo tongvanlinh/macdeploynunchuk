@@ -57,7 +57,7 @@ jobs:
         run: |
           export PATH="/usr/local/Cellar/qt/5.15.1/bin:$PATH"
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/1.2.1/hwi-1.2.1-mac-amd64.tar.gz" -O - | tar -xz
-          mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
+          ls
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
