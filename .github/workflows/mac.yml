@@ -2,7 +2,8 @@ name: mac
 
 on:
   push:
-    branches: [ main ]
+    tags:
+    - '*'
 
   workflow_dispatch:
 
@@ -22,10 +23,6 @@ jobs:
           git clone https://bakaoh:$GITLAB_AT@gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --depth 1 --init --recursive
-
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
         
       - name: Install dependencies
         run: brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher
