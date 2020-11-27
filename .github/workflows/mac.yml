@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           export MACOSX_DEPLOYMENT_TARGET=10.9
-          brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher
+          brew reinstall --build-from-source automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher
 
       - name: Cache libnunchuk contrib
         uses: actions/cache@v2
