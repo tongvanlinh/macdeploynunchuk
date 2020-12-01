@@ -6,21 +6,35 @@ addons:
   homebrew:
     packages:
     - berkeley-db4
-    - libtool
+    - openssl@1.1
     - boost
-    - pkg-config
-    - python 
     - qt5
     - libevent
     - sqlite
     - sqlcipher
 
-before_install:
+install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
-  - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
-  - cd nunchuk-qt
+  - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --depth 1 --init --recursive
-  - cd contrib/libnunchuk/contrib/bitcoin
+  - pushd contrib/libnunchuk/contrib/bitcoin
   - ./autogen.sh
-  - ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb
+  - ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
   - make -j8
+  - popd
+
+script:
+  - mkdir contrib/libnunchuk/contrib/sqlcipher/.libs
+  - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
+  - mkdir build && cd build
+  - cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt/lib/cmake
+  - cmake --build . --config Release -j8
+
+deploy:
+  - export PATH="/usr/local/opt/qt/bin:$PATH"
+  - wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/1.2.1/hwi-1.2.1-mac-amd64.tar.gz" -O - | tar -xz
+  - mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
+  - mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
+  - mv nunchuck-client-qt.app Nunchuk.app
+  - macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+  - macdeployqt Nunchuk.app -dmg
