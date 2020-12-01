@@ -1,0 +1,18 @@
+os: osx
+language: minimal
+osx_image: xcode9.4
+
+addons:
+  homebrew:
+    packages:
+    - automake
+    - berkeley-db4
+    - openssl@1.1
+    - libtool
+    - boost
+    - pkg-config
+    - python 
+    - qt5
+    - libevent
+    - sqlite
+    - sqlcipher
