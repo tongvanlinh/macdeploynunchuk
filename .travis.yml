@@ -4,6 +4,7 @@ osx_image: xcode9.4
 
 addons:
   homebrew:
+    update: true
     packages:
     - automake
     - berkeley-db4
