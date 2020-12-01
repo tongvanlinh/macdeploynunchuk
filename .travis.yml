@@ -1,14 +1,11 @@
 os: osx
 language: minimal
-osx_image: xcode9.4
+osx_image: xcode12.2
 
 addons:
   homebrew:
-    update: true
     packages:
-    - automake
     - berkeley-db4
-    - openssl@1.1
     - libtool
     - boost
     - pkg-config
@@ -17,3 +14,13 @@ addons:
     - libevent
     - sqlite
     - sqlcipher
+
+before_install:
+  - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
+  - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
+  - cd nunchuk-qt
+  - git submodule update --depth 1 --init --recursive
+  - cd contrib/libnunchuk/contrib/bitcoin
+  - ./autogen.sh
+  - ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb
+  - make -j8
