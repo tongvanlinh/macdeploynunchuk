@@ -15,10 +15,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
  
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '11.2.1'
-        
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
         env:
@@ -29,15 +25,13 @@ jobs:
           git submodule update --depth 1 --init --recursive
         
       - name: Install dependencies
-        run: |
-          export MACOSX_DEPLOYMENT_TARGET=10.9
-          brew reinstall --build-from-source automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher
+        run: brew reinstall --build-from-source automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher
 
-      - name: Cache libnunchuk contrib
+      - name: Cache Bitcoin Core
         uses: actions/cache@v2
         id: cache-contrib
         with:
-          path: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib
+          path: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/bitcoin
           key: mac-543693b92b954d186cb466a2f14b480f3bcf8c0b-1
 
       - name: Build Bitcoin Core
