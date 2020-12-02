@@ -20,14 +20,7 @@ install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
   - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --depth 1 --init --recursive
-  - pushd contrib/libnunchuk/contrib/bitcoin
-  - ./autogen.sh
-  - ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
-  - make -j8
-  - popd
-  - mkdir -p $TRAVIS_BUILD_DIR/cache
-  - cp -R contrib/libnunchuk/contrib/bitcoin $TRAVIS_BUILD_DIR/cache
-  - echo "543693b92b954d186cb466a2f14b480f3bcf8c0b" > $TRAVIS_BUILD_DIR/cache/bitcoin.commit
+  - set -o errexit; source scripts/setup_bitcoin_core.sh
   - mkdir contrib/libnunchuk/contrib/sqlcipher/.libs
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
