@@ -2,6 +2,8 @@ os: osx
 language: minimal
 osx_image: xcode11
 
+if: tag IS present
+
 addons:
   homebrew:
     packages:
@@ -9,6 +11,10 @@ addons:
     - boost
     - libevent
     - sqlcipher
+
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/cache
 
 install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
@@ -19,6 +25,9 @@ install:
   - ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
   - make -j8
   - popd
+  - mkdir -p $TRAVIS_BUILD_DIR/cache
+  - cp -R contrib/libnunchuk/contrib/bitcoin $TRAVIS_BUILD_DIR/cache
+  - echo "543693b92b954d186cb466a2f14b480f3bcf8c0b" > $TRAVIS_BUILD_DIR/cache/bitcoin.commit
   - mkdir contrib/libnunchuk/contrib/sqlcipher/.libs
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
@@ -33,7 +42,7 @@ after_success:
   - mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
   - mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
   - mv nunchuck-client-qt.app Nunchuk.app
-  - macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+  - macdeployqt Nunchuk.app -qmldir=..
   - macdeployqt Nunchuk.app -dmg
 
 deploy:
