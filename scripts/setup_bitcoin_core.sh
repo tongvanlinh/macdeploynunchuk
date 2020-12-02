@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cacheCommit=`cat cache/bitcoin.commit`
+cacheCommit=`cat $TRAVIS_BUILD_DIR/cache/bitcoin.commit`
 currentCommit=`git -C contrib/libnunchuk/contrib/bitcoin rev-parse HEAD`
 
 if [ "$cacheCommit" == "$currentCommit" ]

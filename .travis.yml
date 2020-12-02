@@ -29,6 +29,9 @@ script:
   - cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt/lib/cmake
   - cmake --build . --config Release -j8
 
+before_cache:
+  - export TRAVIS_BRANCH=main
+
 after_success:
   - export PATH="/usr/local/opt/qt/bin:$PATH"
   - wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/1.2.1/hwi-1.2.1-mac-amd64.tar.gz" -O - | tar -xz
