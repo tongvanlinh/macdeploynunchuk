@@ -3,8 +3,7 @@
 cacheCommit=`cat $TRAVIS_BUILD_DIR/cache/bitcoin.commit`
 currentCommit=`git -C contrib/libnunchuk/contrib/bitcoin rev-parse HEAD`
 
-if [ "$cacheCommit" == "$currentCommit" ]
-then
+if [ "$cacheCommit" == "$currentCommit" ]; then
   echo "Restore Bitcoin Core cache"
   cp -R $TRAVIS_BUILD_DIR/cache/bitcoin contrib/libnunchuk/contrib
 else
