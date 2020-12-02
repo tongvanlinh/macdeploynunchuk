@@ -10,8 +10,8 @@ then
 else
   echo "Build Bitcoin Core"
   pushd contrib/libnunchuk/contrib/bitcoin
-  ./autogen.sh
-  ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
+  source ./autogen.sh
+  source ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
   make -j8
   popd
   echo "Update Bitcoin Core cache"
