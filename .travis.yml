@@ -1,7 +1,6 @@
 os: osx
-language: minimal
+language: shell
 osx_image: xcode11
-
 
 addons:
   homebrew:
@@ -19,7 +18,23 @@ install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
   - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --depth 1 --init --recursive
-  - source ../scripts/setup_bitcoin_core.sh
+  - cacheCommit=`cat $TRAVIS_BUILD_DIR/cache/bitcoin.commit`
+  - currentCommit=`git -C contrib/libnunchuk/contrib/bitcoin rev-parse HEAD`
+  - if [ "$cacheCommit" == "$currentCommit" ]; then
+      echo "Restore Bitcoin Core cache"
+      cp -R $TRAVIS_BUILD_DIR/cache/bitcoin contrib/libnunchuk/contrib
+    else
+      echo "Build Bitcoin Core"
+      pushd contrib/libnunchuk/contrib/bitcoin
+      source ./autogen.sh
+      source ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests
+      make -j8
+      popd
+      echo "Update Bitcoin Core cache"
+      rm -rf $TRAVIS_BUILD_DIR/cache/bitcoin
+      cp -R contrib/libnunchuk/contrib/bitcoin $TRAVIS_BUILD_DIR/cache
+      echo $currentCommit > $TRAVIS_BUILD_DIR/cache/bitcoin.commit
+    fi
   - mkdir contrib/libnunchuk/contrib/sqlcipher/.libs
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
@@ -42,8 +57,8 @@ after_success:
 
 deploy:
   provider: releases
-  api_key: $GITHUB_OAUTH_TOKEN
-  skip_cleanup: true
+  token: $GITHUB_OAUTH_TOKEN
+  cleanup: false
   file: Nunchuk.dmg
   on:
     tags: true
