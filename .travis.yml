@@ -20,7 +20,7 @@ install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
   - git clone https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --depth 1 --init --recursive
-  - set -o errexit; source ../scripts/setup_bitcoin_core.sh
+  - source ../scripts/setup_bitcoin_core.sh
   - mkdir contrib/libnunchuk/contrib/sqlcipher/.libs
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
