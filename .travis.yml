@@ -2,6 +2,8 @@ os: osx
 language: shell
 osx_image: xcode11
 
+if: tag IS present
+
 addons:
   homebrew:
     packages:
@@ -54,11 +56,12 @@ after_success:
   - mv nunchuck-client-qt.app Nunchuk.app
   - macdeployqt Nunchuk.app -qmldir=..
   - macdeployqt Nunchuk.app -dmg
+  - zip nunchuk-mac-$TRAVIS_TAG.zip Nunchuk.dmg
 
 deploy:
   provider: releases
   token: $GITHUB_OAUTH_TOKEN
   cleanup: false
-  file: Nunchuk.dmg
+  file: nunchuk-mac-$TRAVIS_TAG.zip
   on:
     tags: true
