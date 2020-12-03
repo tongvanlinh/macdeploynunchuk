@@ -61,7 +61,7 @@ after_success:
 deploy:
   provider: releases
   token: $GITHUB_OAUTH_TOKEN
-  cleanup: false
+  skip_cleanup: true
   file: nunchuk-mac-$TRAVIS_TAG.zip
   on:
     tags: true
