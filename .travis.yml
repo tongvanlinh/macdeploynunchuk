@@ -51,6 +51,7 @@ before_cache:
 after_success:
   - export PATH="/usr/local/opt/qt/bin:$PATH"
   - wget -c -q "https://nunchuk.io/downloads/hwi"
+  - chmod 755 hwi
   - mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
   - mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
   - mv nunchuck-client-qt.app Nunchuk.app
