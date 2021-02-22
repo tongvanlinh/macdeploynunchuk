@@ -11,8 +11,6 @@ addons:
     - boost
     - libevent
     - sqlcipher
-    - qt
-    update: true
 
 cache:
   directories:
