@@ -2,8 +2,6 @@ os: osx
 language: shell
 osx_image: xcode11
 
-if: tag IS present
-
 addons:
   homebrew:
     packages:
