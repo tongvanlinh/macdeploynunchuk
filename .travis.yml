@@ -40,6 +40,7 @@ install:
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
 script:
+  - brew install qt
   - /usr/local/opt/qt/bin/qmake --version
   - mkdir build && cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt/lib/cmake -DUR__DISABLE_TESTS=ON
