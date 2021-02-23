@@ -63,4 +63,4 @@ deploy:
   skip_cleanup: true
   file: nunchuk-mac-$TRAVIS_TAG.zip
   on:
-    branches: develop
+    branches: linhtv
