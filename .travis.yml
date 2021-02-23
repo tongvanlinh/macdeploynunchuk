@@ -10,6 +10,7 @@ addons:
     - libevent
     - sqlcipher
     - qt
+	update: true
 
 
 cache:
