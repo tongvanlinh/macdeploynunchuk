@@ -40,13 +40,13 @@ install:
   - cp /usr/local/lib/libsqlcipher.a contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
 
 script:
-  - qmake --version
+  - /usr/local/opt/qt/bin/qmake --version
   - mkdir build && cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt/lib/cmake -DUR__DISABLE_TESTS=ON
   - cmake --build . --config Release -j8
 
 before_cache:
-  - export TRAVIS_BRANCH=main
+  - export TRAVIS_BRANCH=linhtv
 
 after_success:
   - export PATH="/usr/local/opt/qt/bin:$PATH"
@@ -62,5 +62,3 @@ deploy:
   token: $GITHUB_OAUTH_TOKEN
   skip_cleanup: true
   file: nunchuk-mac-$TRAVIS_TAG.zip
-  on:
-    branches: linhtv
