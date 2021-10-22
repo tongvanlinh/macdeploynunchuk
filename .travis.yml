@@ -25,7 +25,6 @@ install:
   - git submodule update --init --recursive
   - git pull origin ci
   - cd contrib/libnunchuk
-  - git submodule update --init --recursive
   - git remote add gitlab https://gitlab.com/nunchuck/libnunchuk
   - git fetch --all
   - git pull
