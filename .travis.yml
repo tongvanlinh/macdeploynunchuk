@@ -18,11 +18,9 @@ cache:
 
 install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
-  - git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt
+  - git clone https://gitlab.com/nunchuck/nunchuck-qt
   - cd nunchuk-qt
-  - cd contrib/libnunchuk
-  - git fetch --all
-  - cd ../..
+  - git checkout online
   - git submodule update --init --recursive
   - cacheCommit=`cat $TRAVIS_BUILD_DIR/cache/bitcoin.commit`
   - currentCommit=`git -C contrib/libnunchuk/contrib/bitcoin rev-parse HEAD`
