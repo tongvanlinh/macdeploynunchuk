@@ -18,7 +18,8 @@ cache:
 
 install:
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
-  - git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
+  - git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt
+  - cd nunchuk-qt
   - cd contrib/libnunchuk
   - git fetch --all
   - cd ../..
