@@ -11,6 +11,8 @@ addons:
     - boost
     - libevent
     - sqlcipher
+    - libolm
+    - qtkeychain
 
 cache:
   directories:
