@@ -19,7 +19,7 @@ cache:
 
 install:
   - git clone https://gitlab.matrix.org/matrix-org/olm --depth 1 && cd olm
-  - cmake . -Bbuild -DBUILD_SHARED_LIBS=NO
+  - cmake . -Bbuild
   - cmake --build build
   - cmake --install build
   - cd ..
