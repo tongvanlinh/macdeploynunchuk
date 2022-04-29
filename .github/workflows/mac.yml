@@ -26,7 +26,7 @@ jobs:
           git submodule update --init --recursive
         
       - name: Install dependencies
-        run: brew install automake berkeley-db4 openssl@1.1 libtool boost miniupnpc pkg-config python qt5 libevent qrencode sqlite sqlcipher libolm qtkeychain
+        run: brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm qtkeychain
 
       - name: Cache Bitcoin Core
         uses: actions/cache@v2

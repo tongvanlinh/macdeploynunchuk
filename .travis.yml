@@ -1,6 +1,6 @@
 os: osx
 language: shell
-osx_image: xcode11
+osx_image: xcode11.4
 
 if: tag IS present
 
@@ -12,13 +12,13 @@ addons:
     - libevent
     - sqlcipher
     - qtkeychain
+    - libolm
 
 cache:
   directories:
     - $TRAVIS_BUILD_DIR/cache
 
 install:
-  - brew install libolm
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
   - git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --init --recursive
