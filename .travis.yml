@@ -12,14 +12,17 @@ addons:
     - libevent
     - sqlcipher
     - qtkeychain
-    - libolm
-    update: true
 
 cache:
   directories:
     - $TRAVIS_BUILD_DIR/cache
 
 install:
+  - git clone https://gitlab.matrix.org/matrix-org/olm --depth 1 && cd olm
+  - cmake . -Bbuild -DBUILD_SHARED_LIBS=NO
+  - cmake --build build
+  - cmake --install build
+  - cd ..
   - echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
   - git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1 && cd nunchuk-qt
   - git submodule update --init --recursive
