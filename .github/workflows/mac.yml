@@ -27,7 +27,7 @@ jobs:
         
       - name: Install dependencies
         run: |
-          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.75 qt@5 libevent sqlite sqlcipher libolm qtkeychain          
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm qtkeychain          
 
       - name: Cache Bitcoin Core
         uses: actions/cache@v2
@@ -41,12 +41,12 @@ jobs:
         working-directory: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/bitcoin
         run: |
           export PATH="/usr/local/opt/qt@5/bin:$PATH"
-          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.75/lib -L/usr/local/opt/berkeley-db@4/lib"
-          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.75/include -I/usr/local/opt/berkeley-db@4/include"
-          export BOOST_ROOT="/usr/local/opt/boost@1.75"
-          ls /usr/local/opt/boost@1.75/lib
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          ls /usr/local/opt/boost@1.76/lib
           ./autogen.sh
-          ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests --with-boost-libdir="/usr/local/opt/boost@1.75/lib"
+          ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests --with-boost-libdir="/usr/local/opt/boost@1.76/lib"
           make -j8
 
       - name: Build nunchuk-qt
