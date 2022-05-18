@@ -66,6 +66,10 @@ jobs:
       - name: Deploy Dmg
         working-directory: ${{runner.workspace}}/build
         run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
           mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
