@@ -86,7 +86,9 @@ jobs:
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          #macdeployqt Nunchuk.app -dmg
+          mkdir nunchuk-mac-qt
+          mv Nunchuk.app nunchuk-mac-qt
+          zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
       
       - name: Get the version
         id: get_version
@@ -96,4 +98,4 @@ jobs:
         uses: 'actions/upload-artifact@v2'
         with:
           name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
-          path: ${{runner.workspace}}/build/Nunchuk.app
+          path: ${{runner.workspace}}/build/nunchuk-mac-qt.zip
