@@ -27,14 +27,25 @@ jobs:
         
       - name: Install dependencies
         run: |
-          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm qtkeychain          
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm          
+
+      - name: Install qtkeychain
+        working-directory: ${{runner.workspace}}
+        run: |
+          git clone https://github.com/frankosterfeld/qtkeychain
+          cd qtkeychain
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake
+          cmake --build .
+          sudo cmake --install . --prefix "/usr/local"
 
       - name: Cache Bitcoin Core
         uses: actions/cache@v2
         id: cache-contrib
         with:
           path: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/bitcoin
-          key: mac-a0988140b71485ad12c3c3a4a9573f7c21b1eff8-1
+          key: mac-a0988140b71485ad12c3c3a4a9573f7c21b1eff8-2
 
       - name: Build Bitcoin Core
         if: steps.cache-contrib.outputs.cache-hit != 'true'
@@ -45,7 +56,7 @@ jobs:
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
           ./autogen.sh
-          ./configure --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests --with-boost-libdir="/usr/local/opt/boost@1.76/lib"
+          ./configure --enable-module-ecdh --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests --with-boost-libdir="/usr/local/opt/boost@1.76/lib"
           make -j8
 
       - name: Build nunchuk-qt
@@ -75,7 +86,7 @@ jobs:
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          macdeployqt Nunchuk.app -dmg
+          #macdeployqt Nunchuk.app -dmg
       
       - name: Get the version
         id: get_version
@@ -85,4 +96,4 @@ jobs:
         uses: 'actions/upload-artifact@v2'
         with:
           name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
-          path: ${{runner.workspace}}/build/Nunchuk.dmg
+          path: ${{runner.workspace}}/build/Nunchuk.app
