@@ -86,6 +86,18 @@ jobs:
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+      - name: Codesign executable
+        env: 
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          echo $MACOS_CERTIFICATE | base64 —decode > certificate.p12
+          security create-keychain -p "ha@0981526891" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "ha@0981526891" build.keychain
+          security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "ha@0981526891" build.keychain
+          /usr/bin/codesign --force -s "Ha Duong (L6KFK5HKXJ)" ${{runner.workspace}}/Nunchuk.app -v
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
