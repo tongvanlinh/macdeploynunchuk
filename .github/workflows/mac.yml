@@ -89,7 +89,7 @@ jobs:
       
 
       - name: Codesign app bundle
-        working-directory: ${{runner.workspace}}
+        working-directory: ${{runner.workspace}}/build
         # Extract the secrets we defined earlier as environment variables
         env: 
           MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
