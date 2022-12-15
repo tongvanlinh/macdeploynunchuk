@@ -100,7 +100,6 @@ jobs:
           # Turn our base64-encoded certificate back to a regular .p12 file
     
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
-          echo $MACOS_CERTIFICATE
 
           # We need to create a new keychain, otherwise using the certificate will prompt
           # with a UI dialog asking for the certificate password, which we can't
@@ -113,7 +112,12 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
 
           # We finally codesign our app bundle, specifying the Hardened runtime option
-          /usr/bin/codesign --force --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app --deep
+          if /usr/bin/codesign --force --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app --deep >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
+          then
+            echo "App has been signed successfully by my cert!"
+          else
+            echo "App is not signed correctly!"
+          fi
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
