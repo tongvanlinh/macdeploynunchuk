@@ -85,7 +85,7 @@ jobs:
           mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
-          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
       
 
       - name: Codesign app bundle
@@ -124,8 +124,8 @@ jobs:
           security find-identity -v -p codesigning
 
           # We finally codesign our app bundle, specifying the Hardened runtime option
-          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -sign-for-notarization="$MACOS_CERTIFICATE_NAME"
-          #codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
+          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -sign-for-notarization="$MACOS_CERTIFICATE_NAME"
+          codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
           #codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app
           #if /usr/bin/codesign --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           #then
