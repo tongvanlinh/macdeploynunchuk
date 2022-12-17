@@ -110,6 +110,9 @@ jobs:
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
 
+          
+          echo $PRODUCT_BUNDLE_IDENTIFIER
+
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           # We need to create a new keychain, otherwise using the certificate will prompt
           # with a UI dialog asking for the certificate password, which we can't
