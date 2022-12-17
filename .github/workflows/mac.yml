@@ -103,8 +103,11 @@ jobs:
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
           # Turn our base64-encoded certificate back to a regular .p12 file
+          APP="Nunchuk"
           ENTITLEMENTS="${{runner.workspace}}/nunchuk-qt/Info.plist"
           APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+          PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
 
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           security find-identity -v -p codesigning
@@ -129,6 +132,9 @@ jobs:
           #codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app ----> fail
           #/usr/bin/codesign --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app ----> fail
           #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
+
+          #Sign libraries
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
 
           if codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           then
