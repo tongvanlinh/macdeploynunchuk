@@ -249,6 +249,22 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtSql.framework"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtConcurrent.framework"
 
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libpcre2-16.0.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libpcre2-8.0.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libqt5keychain.1.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libglib-2.0.0.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libpng16.16.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libfreetype.6.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libintl.8.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libwebp.7.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libwebpmux.3.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libgthread-2.0.0.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libwebpdemux.2.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libtiff.5.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libolm.3.dylib"
+
+
           if codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           then
             echo "App has been signed successfully by my cert!"
