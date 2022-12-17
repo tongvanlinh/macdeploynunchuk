@@ -110,7 +110,7 @@ jobs:
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
 
-          
+
           echo $PRODUCT_BUNDLE_IDENTIFIER
 
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
@@ -267,9 +267,7 @@ jobs:
 
           #way 2 ========================================================================================================================================================
 
-          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-          #way 3 ========================================================================================================================================================
-          codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "io.nunchuk.macos" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
           #way 3 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
