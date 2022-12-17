@@ -85,6 +85,7 @@ jobs:
           mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
+          cp -f Icon.icns ${{runner.workspace}}/nunchuk-qt/Contents/Resources/Icon.icns
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
       
 
@@ -135,6 +136,9 @@ jobs:
 
           #Sign libraries
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfcamera.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfmediaplayer.dylib"
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqtmedia_audioengine.dylib"
 
           if codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           then
@@ -144,6 +148,7 @@ jobs:
           fi
           echo "Verifying signature for APP: $APP_PATH"
           codesign --verify --verbose --strict "$APP_PATH"
+          codesign --display --verbose "$APP_PATH"
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
