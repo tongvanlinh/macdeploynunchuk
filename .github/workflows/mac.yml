@@ -265,7 +265,9 @@ jobs:
           #way 2 ========================================================================================================================================================
 
           codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-          #way 2 ========================================================================================================================================================
+          #way 3 ========================================================================================================================================================
+          codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "io.nunchuk.macos" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          #way 3 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
           codesign --verify --verbose --strict "$APP_PATH"
