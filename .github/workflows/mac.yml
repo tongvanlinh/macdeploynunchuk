@@ -212,6 +212,43 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_pinyin.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_tcime.dylib"
 
+
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtMultimediaQuick.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQuickControls2.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQuickParticles.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtRemoteObjects.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DInput.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtBodymovin.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DQuickScene2D.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtPdf.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DRender.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtPrintSupport.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtGui.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtDBus.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQuickTemplates2.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DCore.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQuick.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtCore.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQml.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DExtras.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtMultimedia.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQmlWorkerScript.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtVirtualKeyboard.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtOpenGL.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DQuick.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtWidgets.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DLogic.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQuickShapes.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtNetwork.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtXmlPatterns.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtSvg.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtMultimediaWidgets.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtQmlModels.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/Qt3DAnimation.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtGamepad.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtSql.framework
+          codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/QtConcurrent.framework
+
           if codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           then
             echo "App has been signed successfully by my cert!"
