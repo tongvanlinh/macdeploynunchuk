@@ -265,12 +265,7 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libolm.3.dylib"
 
 
-          if codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
-          then
-            echo "App has been signed successfully by my cert!"
-          else
-            echo "App is not signed correctly!"
-          fi
+          codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
           echo "Verifying signature for APP: $APP_PATH"
           codesign --verify --verbose --strict "$APP_PATH"
           codesign --display --verbose "$APP_PATH"
