@@ -128,7 +128,7 @@ jobs:
           #codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
           #codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app
           #/usr/bin/codesign --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app ----> fail
-          if codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
+          if codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app >&1 | grep -qF "$MACOS_CERTIFICATE_NAME"
           then
             echo "App has been signed successfully by my cert!"
           else
