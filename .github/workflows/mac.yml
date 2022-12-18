@@ -86,7 +86,7 @@ jobs:
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
           #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
-          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
       
 
       - name: Codesign app bundle
