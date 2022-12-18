@@ -131,9 +131,6 @@ jobs:
           #way 1 ========================================================================================================================================================
           #Sign libraries
 
-          xattr -c "$APP_PATH"
-          xattr -c "$APP_PATH/Contents"
-
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfcamera.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfmediaplayer.dylib"
