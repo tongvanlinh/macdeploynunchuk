@@ -130,6 +130,10 @@ jobs:
           #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
           #way 1 ========================================================================================================================================================
           #Sign libraries
+
+          xattr -c "$APP_PATH"
+          xattr -c "$APP_PATH/Contents"
+
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfcamera.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$PLUGINS_PATH/mediaservice/libqavfmediaplayer.dylib"
@@ -259,8 +263,7 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libolm.3.dylib"
 
-          xattr -c "$APP_PATH"
-          xattr -c "$APP_PATH/Contents"
+         
 
 
           codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
