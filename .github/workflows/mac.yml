@@ -110,7 +110,7 @@ jobs:
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
 
-          base64 --decode > certificate.p12
+          echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           # We need to create a new keychain, otherwise using the certificate will prompt
           # with a UI dialog asking for the certificate password, which we can't
           # use in a headless CI environment
@@ -258,6 +258,9 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libtiff.5.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libolm.3.dylib"
+
+          xattr -c "$APP_PATH"
+          xattr -c "$APP_PATH/Contents"
 
 
           codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
