@@ -272,8 +272,8 @@ jobs:
           #way 3 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
-          codesign --verify --verbose --strict "$APP_PATH"
-          codesign --display --verbose=4 "$APP_PATH"
+          #codesign --verify --verbose --strict "$APP_PATH"
+          #codesign --display --verbose=4 "$APP_PATH"
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
