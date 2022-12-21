@@ -275,7 +275,7 @@ jobs:
           codesign --verify --verbose --strict "$APP_PATH"
           codesign --display --verbose=4 "$APP_PATH"
           codesign -vvv --deep --strict "$APP_PATH"
-          #spctl -vvv --assess --type exec --raw "$APP_PATH"
+          spctl -vvv --assess --type exec --raw "$APP_PATH"
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
