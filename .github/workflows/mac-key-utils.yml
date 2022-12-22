@@ -1,0 +1,83 @@
+name: mac-key-utils
+
+on:
+  push:
+    tags:
+    - '*'
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-10.15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+ 
+      - name: Checkout key-utils
+        working-directory: ${{runner.workspace}}
+        env:
+          GITLAB_AT: ${{ secrets.GITLAB_AT }}
+        run: |
+          echo -e "machine github.com\n  login hadvluffy\n  password $GITLAB_AT" >~/.netrc
+          git clone -b main https://github.com/nunchuk-io/key-utils key-utils --depth 1
+          cd key-utils
+          git submodule update --init --recursive
+        
+      - name: Install dependencies
+        run: |
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm          
+
+      - name: Install qtkeychain
+        working-directory: ${{runner.workspace}}
+        run: |
+          git clone https://github.com/frankosterfeld/qtkeychain
+          cd qtkeychain
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake
+          cmake --build .
+          sudo cmake --install . --prefix "/usr/local"
+
+      - name: Build key-utils
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+
+          cmake -E make_directory ${{runner.workspace}}/build
+          cd build
+          cmake ${{runner.workspace}}/key-utils -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake -DUR__DISABLE_TESTS=ON -DBOOST_ROOT=/usr/local/opt/boost@1.76
+          cmake --build . --config Release -j8
+          
+      - name: Deploy Dmg
+        working-directory: ${{runner.workspace}}/build
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+
+          #mv key-utils.app/Contents/MacOS/key-utils key-utils.app/Contents/MacOS/tapsigner
+          #mv key-utils.app tapsigner.app
+         
+
+          #macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils
+          mkdir key-utils_folder
+          mv key-utils.app key-utils_folder
+          zip -r key-utils.zip key-utils_folder
+
+      
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+
+      - name: Upload Artifact
+        uses: 'actions/upload-artifact@v2'
+        with:
+          name: key-utils-mac-${{ steps.get_version.outputs.VERSION }}
+          path: ${{runner.workspace}}/build/key-utils.zip

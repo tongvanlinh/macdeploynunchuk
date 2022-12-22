@@ -1,4 +1,4 @@
-name: mac
+name: macNoSign
 
 on:
   push:
