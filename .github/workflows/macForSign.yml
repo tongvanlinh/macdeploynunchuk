@@ -264,15 +264,17 @@ jobs:
           #codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
           #way 2 ========================================================================================================================================================
-          echo "Beginsign"
+          #echo "Beginsign 2"
 
           #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-          #MY_PRODUCT_BUNDLE_IDENTIFIER="io.nunchuk.macos"
-          #MY_MACOS_CERTIFICATE_NAME="3rd Party Mac Developer Application: Nunchuk Inc (9568FP2WHH)"
+          
 
-          #codesign --verify --verbose --timestamp --options runtime -i "$MY_PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MY_MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
           #way 3 ========================================================================================================================================================
-          macdeployqt Nunchuk.app -sign-for-notarization="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/nunchuk-qt
+          echo "Beginsign 3"
+          macdeployqt Nunchuk.app -verbose=1 -qmldir=${{runner.workspace}}/nunchuk-qt
+          codesign --remove-signature "$APP_PATH"
+          codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
           #way 4 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
