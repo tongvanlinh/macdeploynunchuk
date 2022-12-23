@@ -274,14 +274,14 @@ jobs:
           echo "Beginsign 3"
           macdeployqt Nunchuk.app -verbose=1
           #codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" -f --timestamp --entitlements "$ENTITLEMENTS" -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
+          codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
           #way 4 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
           codesign --verify --verbose --strict "$APP_PATH"
           codesign --display --verbose=4 "$APP_PATH"
           codesign -vvv --deep --strict "$APP_PATH"
-          stapler validate "$APP_PATH"
+          #stapler validate "$APP_PATH"
           #spctl -vvv --assess --type exec --raw "$APP_PATH"
 
           mkdir nunchuk-mac-qt
