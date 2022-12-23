@@ -108,6 +108,7 @@ jobs:
           APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
+          MACOS_CI_KEYCHAIN_PWD="12345"
 
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           # We need to create a new keychain, otherwise using the certificate will prompt
@@ -124,28 +125,9 @@ jobs:
           #way 4 ========================================================================================================================================================
 
           echo "[INFO] Signing app contents"
-          find "$APP_PATH/Contents/MacOS/"|while read fname; do
-            if [[ -f $fname ]]; then
-              echo "[INFO] Signing $fname"
-              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
-            fi
-          done
-          find "$PLUGINS_PATH"|while read fname; do
-            if [[ -f $fname ]]; then
-              echo "[INFO] Signing $fname"
-              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
-            fi
-          done
-          find "$FRAMEWORKS_PATH"|while read fname; do
-            if [[ -f $fname ]]; then
-              echo "[INFO] Signing $fname"
-              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
-            fi
-          done
 
-          echo "[INFO] Signing app file"
 
-          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          codesign --deep --verify --verbose --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
 
