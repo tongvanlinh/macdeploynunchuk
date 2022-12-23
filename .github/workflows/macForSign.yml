@@ -1,4 +1,4 @@
-name: macForSign
+name: mac-Sign-1
 
 on:
   push:

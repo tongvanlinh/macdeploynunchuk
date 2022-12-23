@@ -1,4 +1,4 @@
-name: macForSign
+name: mac-Sign-2
 
 on:
   push:
@@ -124,7 +124,7 @@ jobs:
           #way 4 ========================================================================================================================================================
 
           echo "[INFO] Signing app contents"
-          find "$APP_PATH/Contents"|while read fname; do
+          find "Nunchuk.app/Contents"|while read fname; do
             if [[ -f $fname ]]; then
               echo "[INFO] Signing $fname"
               codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
@@ -133,7 +133,7 @@ jobs:
 
           echo "[INFO] Signing app file"
 
-          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "Nunchuk.app"
 
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
 
