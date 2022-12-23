@@ -124,7 +124,19 @@ jobs:
           #way 4 ========================================================================================================================================================
 
           echo "[INFO] Signing app contents"
-          find "Nunchuk.app/Contents"|while read fname; do
+          find "$APP_PATH/Contents/MacOS/"|while read fname; do
+            if [[ -f $fname ]]; then
+              echo "[INFO] Signing $fname"
+              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
+            fi
+          done
+          find "$PLUGINS_PATH"|while read fname; do
+            if [[ -f $fname ]]; then
+              echo "[INFO] Signing $fname"
+              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
+            fi
+          done
+          find "$FRAMEWORKS_PATH"|while read fname; do
             if [[ -f $fname ]]; then
               echo "[INFO] Signing $fname"
               codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" $fname
@@ -133,7 +145,7 @@ jobs:
 
           echo "[INFO] Signing app file"
 
-          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "Nunchuk.app"
+          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
 
