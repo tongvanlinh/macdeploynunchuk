@@ -263,7 +263,7 @@ jobs:
          
 
 
-          codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
           #way 2 ========================================================================================================================================================
           #echo "Beginsign 2"
