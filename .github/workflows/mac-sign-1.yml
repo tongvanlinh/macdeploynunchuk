@@ -112,6 +112,7 @@ jobs:
           # We need to create a new keychain, otherwise using the certificate will prompt
           # with a UI dialog asking for the certificate password, which we can't
           # use in a headless CI environment
+          MACOS_CERTIFICATE_PWD="1234"
     
           security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain 
           security default-keychain -s build.keychain
