@@ -128,9 +128,7 @@ jobs:
           #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
           #way 1 ========================================================================================================================================================
           #Sign libraries
-
-          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" '../../Distribution/PanConverter/PanConverter.app/Contents/PlugIns/bearer/libqcorewlanbearer.dylib'
-
+          
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/mediaservice/libqavfcamera.dylib"
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/mediaservice/libqavfmediaplayer.dylib"

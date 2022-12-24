@@ -108,7 +108,6 @@ jobs:
           APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
-          MACOS_CERTIFICATE_PWD="12345"
 
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           # We need to create a new keychain, otherwise using the certificate will prompt
