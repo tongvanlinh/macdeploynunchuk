@@ -1,0 +1,343 @@
+name: mac-Sign-1
+
+on:
+  push:
+    tags:
+    - '*'
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-10.15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+ 
+      - name: Checkout nunchuk-qt
+        working-directory: ${{runner.workspace}}
+        env:
+          GITLAB_AT: ${{ secrets.GITLAB_AT }}
+        run: |
+          echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
+          git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
+          cd nunchuk-qt
+          git submodule update --init --recursive
+        
+      - name: Install dependencies
+        run: |
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm          
+
+      - name: Install qtkeychain
+        working-directory: ${{runner.workspace}}
+        run: |
+          git clone https://github.com/frankosterfeld/qtkeychain
+          cd qtkeychain
+          mkdir build
+          cd build
+          cmake .. -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake
+          cmake --build .
+          sudo cmake --install . --prefix "/usr/local"
+
+      - name: Cache Bitcoin Core
+        uses: actions/cache@v2
+        id: cache-contrib
+        with:
+          path: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/bitcoin
+          key: mac-a0988140b71485ad12c3c3a4a9573f7c21b1eff8-2
+
+      - name: Build Bitcoin Core
+        if: steps.cache-contrib.outputs.cache-hit != 'true'
+        working-directory: ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/bitcoin
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          ./autogen.sh
+          ./configure --enable-module-ecdh --without-gui --disable-zmq --with-miniupnpc=no --with-incompatible-bdb --disable-bench --disable-tests --with-boost-libdir="/usr/local/opt/boost@1.76/lib"
+          make -j8
+
+      - name: Build nunchuk-qt
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          mkdir ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs
+          cp /usr/local/lib/libsqlcipher.a ${{runner.workspace}}/nunchuk-qt/contrib/libnunchuk/contrib/sqlcipher/.libs/libsqlcipher.a
+          cmake -E make_directory ${{runner.workspace}}/build
+          cd build
+          cmake ${{runner.workspace}}/nunchuk-qt -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake -DUR__DISABLE_TESTS=ON -DBOOST_ROOT=/usr/local/opt/boost@1.76
+          cmake --build . --config Release -j8
+          
+      - name: Deploy Dmg
+        working-directory: ${{runner.workspace}}/build
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
+          mv hwi Nunchuk.app/Contents/MacOS/hwi
+          #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
+          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+      
+
+      - name: Codesign app bundle
+        working-directory: ${{runner.workspace}}/build
+        # Extract the secrets we defined earlier as environment variables
+        env: 
+          MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
+          MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
+          PRODUCT_BUNDLE_IDENTIFIER: ${{ secrets.PROD_PRODUCT_BUNDLE_IDENTIFIER }}
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          # Turn our base64-encoded certificate back to a regular .p12 file
+          APP="Nunchuk"
+          ENTITLEMENTS="${{runner.workspace}}/build/Nunchuk.app/Contents/Info.plist"
+          APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+          PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
+
+          echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
+          # We need to create a new keychain, otherwise using the certificate will prompt
+          # with a UI dialog asking for the certificate password, which we can't
+          # use in a headless CI environment
+    
+          security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain 
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+          security find-identity -v -p codesigning
+
+          # We finally codesign our app bundle, specifying the Hardened runtime option
+          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -sign-for-notarization="$MACOS_CERTIFICATE_NAME" -----> fail ERROR: codesign verification error
+          #codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
+          #codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app ----> fail
+          #/usr/bin/codesign --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app ----> fail
+          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
+          #way 1 ========================================================================================================================================================
+          #Sign libraries
+
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" '../../Distribution/PanConverter/PanConverter.app/Contents/PlugIns/bearer/libqcorewlanbearer.dylib'
+
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/platforminputcontexts/libqtvirtualkeyboardplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/mediaservice/libqavfcamera.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/mediaservice/libqavfmediaplayer.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/mediaservice/libqtmedia_audioengine.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/sceneparsers/libgltfsceneexport.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/sceneparsers/libassimpsceneimport.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/sceneparsers/libgltfsceneimport.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/platforms/libqcocoa.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/printsupport/libcocoaprintersupport.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/geometryloaders/libdefaultgeometryloader.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/geometryloaders/libgltfgeometryloader.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libdeclarative_multimedia.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickextrasflatplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickvirtualkeyboardsettingsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlxmllistmodelplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libworkerscriptplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickvirtualkeyboardplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickscene2dplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtgraphicaleffectsprivate.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtgraphicaleffectsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquicktimelineplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libparticlesplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/liblabsmodelsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlwavefrontmeshplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtqmlremoteobjects.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickscene3dplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libmodelsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtlabsplatformplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/liblabsanimationplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickextrasplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlfolderlistmodelplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqquicklayoutsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlshapesplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqqc2materialstyleplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libsharedimageplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/liblottieqtplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquick2plugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libwindowplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickcontrols2imaginestyleplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickvirtualkeyboardstylesplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmllocalstorageplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libdialogplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickcontrolsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libpdfplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libwidgetsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickcontrols2universalstyleplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtlabscalendarplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libdialogsprivateplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickcontrols2fusionstyleplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquicktemplates2plugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqmlsettingsplugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtqmlstatemachine.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/quick/libqtquickcontrols2plugin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/styles/libqmacstyle.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/audio/libqtaudio_coreaudio.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/bearer/libqgenericbearer.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/iconengines/libqsvgicon.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/sqldrivers/libqsqlite.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqgif.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqwbmp.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqwebp.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqico.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqmacheif.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqjpeg.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqtiff.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqsvg.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqpdf.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqicns.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqtga.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/imageformats/libqmacjp2.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_thai.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_openwnn.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_hangul.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_pinyin.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$PLUGINS_PATH/virtualkeyboard/libqtvirtualkeyboard_tcime.dylib"
+
+
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtMultimediaQuick.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQuickControls2.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQuickParticles.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtRemoteObjects.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DInput.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtBodymovin.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DQuickScene2D.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtPdf.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DRender.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtPrintSupport.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtGui.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtDBus.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQuickTemplates2.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DCore.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQuick.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtCore.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQml.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DExtras.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtMultimedia.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQmlWorkerScript.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtVirtualKeyboard.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtOpenGL.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DQuick.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtWidgets.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DLogic.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQuickShapes.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtNetwork.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtXmlPatterns.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtSvg.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtMultimediaWidgets.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtQmlModels.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/Qt3DAnimation.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtGamepad.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtSql.framework"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/QtConcurrent.framework"
+
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libpcre2-16.0.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libpcre2-8.0.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libqt5keychain.1.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libglib-2.0.0.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libpng16.16.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libfreetype.6.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libintl.8.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libwebp.7.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libwebpmux.3.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libgthread-2.0.0.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libwebpdemux.2.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libtiff.5.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
+          codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libolm.3.dylib"
+
+         
+
+
+          codesign --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+
+          #way 2 ========================================================================================================================================================
+          #echo "Beginsign 2"
+
+          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          
+
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #way 3 ========================================================================================================================================================
+          echo "Beginsign 3"
+          # macdeployqt Nunchuk.app -verbose=1
+          #macdeployqt Nunchuk.app -sign-for-notarization="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/nunchuk-qt
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
+          #way 4 ========================================================================================================================================================
+
+          echo "Verifying signature for APP: $APP_PATH"
+          codesign --verify --verbose --strict "$APP_PATH"
+          codesign --display --verbose=4 "$APP_PATH"
+          codesign -vvv --deep --strict "$APP_PATH"
+          #stapler validate "$APP_PATH"
+          #spctl -vvv --assess --type exec --raw "$APP_PATH"
+
+          mkdir nunchuk-mac-qt
+          mv Nunchuk.app nunchuk-mac-qt
+          zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
+
+
+
+      #- name: "Notarize app bundle"
+      #  working-directory: ${{runner.workspace}}/build
+      #  # Extract the secrets we defined earlier as environment variables
+      #  env:
+      #    PROD_MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.PROD_MACOS_NOTARIZATION_APPLE_ID }}
+      #    PROD_MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.PROD_MACOS_NOTARIZATION_TEAM_ID }}
+      #    PROD_MACOS_NOTARIZATION_PWD: ${{ secrets.PROD_MACOS_NOTARIZATION_PWD }}
+      #  run: |
+      #    # Store the notarization credentials so that we can prevent a UI password dialog
+      #    # from blocking the CI
+      #    APP="Nunchuk"
+      #    ENTITLEMENTS="${{runner.workspace}}/nunchuk-qt/Info.plist"
+      #    APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
+      #    FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+      #    PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
+
+      #    echo "Create keychain profile"
+      #    xcrun notarytool store-credentials "notarytool-profile" --apple-id "$PROD_MACOS_NOTARIZATION_APPLE_ID" --team-id "$PROD_MACOS_NOTARIZATION_TEAM_ID" --password "$PROD_MACOS_NOTARIZATION_PWD"
+
+          # We can't notarize an app bundle directly, but we need to compress it as an archive.
+          # Therefore, we create a zip file containing our app bundle, so that we can send it to the
+          # notarization service
+
+          #echo "Creating temp notarization archive"
+      #    ditto -c -k --keepParent "APP_PATH" "nunchuk-mac-qt.zip"
+
+          # Here we send the notarization request to the Apple's Notarization service, waiting for the result.
+          # This typically takes a few seconds inside a CI environment, but it might take more depending on the App
+          # characteristics. Visit the Notarization docs for more information and strategies on how to optimize it if
+          # you're curious
+
+          #echo "Notarize app"
+       #   xcrun notarytool submit "nunchuk-mac-qt.zip" --keychain-profile "notarytool-profile" --wait
+
+      #    # Finally, we need to "attach the staple" to our executable, which will allow our app to be
+      #    # validated by macOS even when an internet connection is not available.
+      #    echo "Attach staple"
+      #    xcrun stapler staple "target/mac/Espanso.app"
+      
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+
+      - name: Upload Artifact
+        uses: 'actions/upload-artifact@v2'
+        with:
+          name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
+          path: ${{runner.workspace}}/build/nunchuk-mac-qt.zip
