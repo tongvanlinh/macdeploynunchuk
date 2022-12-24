@@ -96,7 +96,7 @@ jobs:
           MACOS_CERTIFICATE_PWD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
           MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
           MACOS_CI_KEYCHAIN_PWD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
-          PRODUCT_BUNDLE_IDENTIFIER: ${{ secrets.PROD_PRODUCT_BUNDLE_IDENTIFIER }}
+          TEAMID_BUNDLE_IDENTIFIER: ${{ secrets.PROD_TEAMID_BUNDLE_IDENTIFIER }}
         run: |
           export PATH="/usr/local/opt/qt@5/bin:$PATH"
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
@@ -131,8 +131,8 @@ jobs:
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
 
           
-          #codesign --deep --verify --verbose --timestamp --options runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$TEAMID_BUNDLE_IDENTIFIER" "$APP_PATH"
           #way 4 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"
@@ -148,24 +148,27 @@ jobs:
 
 
 
-      #- name: "Notarize app bundle"
-      #  working-directory: ${{runner.workspace}}/build
-      #  # Extract the secrets we defined earlier as environment variables
-      #  env:
-      #    PROD_MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.PROD_MACOS_NOTARIZATION_APPLE_ID }}
-      #    PROD_MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.PROD_MACOS_NOTARIZATION_TEAM_ID }}
-      #    PROD_MACOS_NOTARIZATION_PWD: ${{ secrets.PROD_MACOS_NOTARIZATION_PWD }}
-      #  run: |
-      #    # Store the notarization credentials so that we can prevent a UI password dialog
-      #    # from blocking the CI
-      #    APP="Nunchuk"
-      #    ENTITLEMENTS="${{runner.workspace}}/nunchuk-qt/Info.plist"
-      #    APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
-      #    FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
-      #    PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
+      - name: "Notarize app bundle"
+        working-directory: ${{runner.workspace}}/build
+        # Extract the secrets we defined earlier as environment variables
+        env:
+          APPLE_ID: ${{ secrets.IO_APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.IO_APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.IO_APPLE_TEAM_ID }}
+        run: |
+          # Store the notarization credentials so that we can prevent a UI password dialog
+          # from blocking the CI
+          APP="Nunchuk"
+          ENTITLEMENTS="${{runner.workspace}}/nunchuk-qt/Info.plist"
+          APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+          PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
+
+          # store notarytool credentials
+          xcrun notarytool store-credentials --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" notarytool --validate
 
       #    echo "Create keychain profile"
-      #    xcrun notarytool store-credentials "notarytool-profile" --apple-id "$PROD_MACOS_NOTARIZATION_APPLE_ID" --team-id "$PROD_MACOS_NOTARIZATION_TEAM_ID" --password "$PROD_MACOS_NOTARIZATION_PWD"
+      #    xcrun notarytool store-credentials "notarytool-profile" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
 
           # We can't notarize an app bundle directly, but we need to compress it as an archive.
           # Therefore, we create a zip file containing our app bundle, so that we can send it to the
