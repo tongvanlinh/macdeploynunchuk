@@ -85,8 +85,7 @@ jobs:
           mv hwi nunchuck-client-qt.app/Contents/MacOS/hwi
           mv nunchuck-client-qt.app/Contents/MacOS/nunchuck-client-qt nunchuck-client-qt.app/Contents/MacOS/Nunchuk
           mv nunchuck-client-qt.app Nunchuk.app
-          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          macdeployqt Nunchuk.app -dmg
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
       
       - name: Get the version
         id: get_version

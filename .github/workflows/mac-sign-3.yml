@@ -85,9 +85,6 @@ jobs:
           mv hwi Nunchuk.app/Contents/MacOS/hwi
           #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
           #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          cd ${{github.workspace}}/build
-          $(brew --prefix qt5)/bin/macdeployqt Nunchuk.app || echo "Macdeploy FAILED"
-          codesign -dv --verbose=4 Nunchuk.app || echo "Codesign FAILED"
       
 
       - name: Codesign app bundle
