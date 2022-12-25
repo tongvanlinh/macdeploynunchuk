@@ -126,13 +126,13 @@ jobs:
 
           echo "[INFO] Signing app contents"
 
-          codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
 
           
-          #codesign --deep --verify --verbose --timestamp --options runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$TEAMID_BUNDLE_IDENTIFIER" "$APP_PATH"
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$BUNDLE_IDENTIFIER" "$APP_PATH"
           #way 4 ========================================================================================================================================================
 
           echo "Verifying signature for APP: $APP_PATH"

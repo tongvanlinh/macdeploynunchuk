@@ -126,7 +126,7 @@ jobs:
           #codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
           #codesign --options runtime -s "$MACOS_CERTIFICATE_NAME"  -f --timestamp --entitlements Nunchuk.app/Contents/Info.plist Nunchuk.app ----> fail
           #/usr/bin/codesign --verify --verbose --sign "$MACOS_CERTIFICATE_NAME" --keychain build.keychain Nunchuk.app ----> fail
-          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
+          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH" --------> fail:/Users/runner/work/macdeploynunchuk/build/Nunchuk.app: signed app bundle with Mach-O thin (x86_64) [***]
           #way 1 ========================================================================================================================================================
           #Sign libraries
 
@@ -262,22 +262,22 @@ jobs:
          
 
 
-          codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           #way 2 ========================================================================================================================================================
           #echo "Beginsign 2"
 
-          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          #codesign --force --deep --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o library -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
           
 
-          #codesign --deep --verify --verbose --timestamp --options runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
           #way 3 ========================================================================================================================================================
           echo "Beginsign 3"
           #macdeployqt Nunchuk.app -verbose=1
           #macdeployqt Nunchuk.app -sign-for-notarization="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/nunchuk-qt
           #macdeployqt Nunchuk.app -codesign="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/nunchuk-qt -always-overwrite
-          #codesign --deep --verify --verbose --timestamp --options runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$TEAMID_BUNDLE_IDENTIFIER" "$APP_PATH"
+          #codesign --deep --verify --verbose --timestamp --options runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$BUNDLE_IDENTIFIER" "$APP_PATH"
           #codesign --deep --force --verify --verbose --timestamp --options runtime --sign "${CODE_SIGNING_ID}" "${APP_PATH}"
           #way 4 ========================================================================================================================================================
 
