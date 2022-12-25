@@ -85,6 +85,9 @@ jobs:
           mv hwi Nunchuk.app/Contents/MacOS/hwi
           #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
           #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          cd ${{github.workspace}}/build
+          $(brew --prefix qt5)/bin/macdeployqt Nunchuk.app || echo "Macdeploy FAILED"
+          codesign -dv --verbose=4 Nunchuk.app || echo "Codesign FAILED"
       
 
       - name: Codesign app bundle
@@ -258,9 +261,6 @@ jobs:
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libtiff.5.dylib"
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME" "$FRAMEWORKS_PATH/libolm.3.dylib"
-
-         
-
 
           codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
