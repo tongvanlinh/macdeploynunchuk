@@ -126,7 +126,6 @@ jobs:
 
           echo "[INFO] Signing app contents"
 
-
           codesign --deep --verify --verbose --timestamp --options=runtime -i "$TEAMID_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"
@@ -142,10 +141,12 @@ jobs:
           codesign -vvv --deep --strict "$APP_PATH"
           #stapler validate "$APP_PATH"
           #spctl -vvv --assess --type exec --raw "$APP_PATH"
-          spctl --verbose=4 --assess --type execute "$APP_PATH"
+          spctl --assess --verbose=4 --type install "$APP_PATH"
+          #spctl --verbose=4 --assess --type execute "$APP_PATH"
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
+          mv Nunchuk-hadv.zip nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
 
 
