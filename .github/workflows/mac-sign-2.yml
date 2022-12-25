@@ -126,7 +126,6 @@ jobs:
 
           echo "[INFO] Signing app contents"
 
-          xattr -cr "$APP_PATH"
           codesign --deep --force --verify --verbose=3 --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
           #xattr -cr "$APP_PATH"
           #codesign -d --keychain build.keychain --force --verbose -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS" "$APP_PATH"
