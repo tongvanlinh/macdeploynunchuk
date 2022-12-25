@@ -85,6 +85,7 @@ jobs:
           mv hwi Nunchuk.app/Contents/MacOS/hwi
           #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
           #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          macdeployqt Nunchuk.app -verbose=1
       
 
       - name: Codesign app bundle
@@ -259,10 +260,11 @@ jobs:
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libjpeg.8.dylib"
           codesign -s "$MACOS_CERTIFICATE_NAME" -f --entitlements "$ENTITLEMENTS" "$FRAMEWORKS_PATH/libolm.3.dylib"
 
-         
+          xattr -cr "$APP_PATH"
+          codesign -d --keychain build.keychain --force --verbose -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
 
-          codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign --force --verify --verbose=3 --options runtime --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
           #way 2 ========================================================================================================================================================
           #echo "Beginsign 2"
@@ -286,8 +288,8 @@ jobs:
           codesign --display --verbose=4 "$APP_PATH"
           codesign -vvv --deep --strict "$APP_PATH"
           #stapler validate "$APP_PATH"
-          #spctl -vvv --assess --type exec --raw "$APP_PATH"
-          #spctl --verbose=4 --assess --type execute "$APP_PATH"
+          spctl -vvv --assess --type exec --raw "$APP_PATH"
+          spctl --verbose=4 --assess --type execute "$APP_PATH"
 
           mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
