@@ -107,9 +107,9 @@ jobs:
           macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/key-utils -dmg
           
 
-          mkdir nunchuk-mac-qt
-          mv key-utils.dmg nunchuk-mac-qt
-          zip -r key-utils.zip nunchuk-mac-qt
+          mkdir utils-mac-qt
+          mv key-utils.dmg utils-mac-qt
+          zip -r key-utils.zip utils-mac-qt
           
       - name: Get the version
         id: get_version
