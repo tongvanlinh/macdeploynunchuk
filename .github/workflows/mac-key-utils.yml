@@ -109,7 +109,7 @@ jobs:
 
           mkdir nunchuk-mac-qt
           mv key-utils.dmg nunchuk-mac-qt
-          zip -r key-utils.dmg nunchuk-mac-qt
+          zip -r key-utils.zip nunchuk-mac-qt
           
       - name: Get the version
         id: get_version
