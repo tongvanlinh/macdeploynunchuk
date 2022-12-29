@@ -67,11 +67,50 @@ jobs:
          
 
           #macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils
-          mkdir key-utils_folder
-          mv key-utils.app key-utils_folder
-          zip -r key-utils.zip key-utils_folder
 
-      
+
+      - name: Codesign app bundle
+        working-directory: ${{runner.workspace}}/build
+        # Extract the secrets we defined earlier as environment variables
+        env: 
+          MACOS_CERTIFICATE: ${{ secrets.PROD_MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.PROD_MACOS_CERTIFICATE_PWD }}
+          MACOS_CERTIFICATE_NAME: ${{ secrets.PROD_MACOS_CERTIFICATE_NAME }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.PROD_MACOS_CI_KEYCHAIN_PWD }}
+          BUNDLE_IDENTIFIER: ${{ secrets.IO_BUNDLE_IDENTIFIER }}
+          TEAMID_BUNDLE_IDENTIFIER: ${{ secrets.IO_TEAMID_BUNDLE_IDENTIFIER }}
+          APP: "Nunchuk"
+          ENTITLEMENTS: "${{runner.workspace}}/build/Nunchuk.app/Contents/Info.plist"
+          APP_PATH: "${{runner.workspace}}/build/Nunchuk.app"
+          FRAMEWORKS_PATH: "$APP_PATH/Contents/Frameworks"
+          PLUGINS_PATH: "$APP_PATH/Contents/PlugIns"
+        run: |
+          export PATH="/usr/local/opt/qt@5/bin:$PATH"
+          export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
+          export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
+          export BOOST_ROOT="/usr/local/opt/boost@1.76"
+          # Turn our base64-encoded certificate back to a regular .p12 file
+
+          echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
+          # We need to create a new keychain, otherwise using the certificate will prompt
+          # with a UI dialog asking for the certificate password, which we can't
+          # use in a headless CI environment
+    
+          security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain 
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+          security find-identity -v -p codesigning
+
+          #way 4 ========================================================================================================================================================
+          macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/key-utils -dmg
+          
+
+          mkdir nunchuk-mac-qt
+          mv key-utils.dmg nunchuk-mac-qt
+          zip -r key-utils.dmg nunchuk-mac-qt
+          
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
@@ -80,4 +119,4 @@ jobs:
         uses: 'actions/upload-artifact@v2'
         with:
           name: key-utils-mac-${{ steps.get_version.outputs.VERSION }}
-          path: ${{runner.workspace}}/build/key-utils.zip
+          path: ${{runner.workspace}}/build/key-utils.dmg
