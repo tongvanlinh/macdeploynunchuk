@@ -81,8 +81,8 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
-          mv hwi Nunchuk.app/Contents/MacOS/hwi
+          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
+          #mv hwi Nunchuk.app/Contents/MacOS/hwi
           #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
           #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
           #macdeployqt Nunchuk.app -verbose=1
