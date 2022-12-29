@@ -105,7 +105,7 @@ jobs:
 
           #way 4 ========================================================================================================================================================
           macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/key-utils -dmg
-          #/usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.app -v
+          codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.dmg -v
 
           mkdir utils-mac-qt
           mv key-utils.dmg utils-mac-qt
