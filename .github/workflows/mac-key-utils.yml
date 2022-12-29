@@ -104,11 +104,11 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-          #macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/key-utils -dmg
-          /usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.app -v
+          macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/key-utils -dmg
+          #/usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.app -v
 
           mkdir utils-mac-qt
-          mv key-utils.app utils-mac-qt
+          mv key-utils.dmg utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
           
       - name: Get the version
