@@ -1,4 +1,4 @@
-name: mac-Sign-2
+name: mac-sign-2
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest #macos-10.15
+    runs-on: macos-10.15
 
     steps:
       - name: Checkout
@@ -82,10 +82,10 @@ jobs:
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
-          mv hwi Nunchuk.app/Contents/MacOS/hwi
-          #cp -f ${{runner.workspace}}/nunchuk-qt/Icon.icns ${{runner.workspace}}/build/Nunchuk.app/Contents/Resources/Icon.icns
-          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          macdeployqt Nunchuk.app -verbose=1
+          mv hwi nunchuk-qt.app/Contents/MacOS/hwi
+          mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
+          mv nunchuk-qt.app Nunchuk.app
+          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
       
 
       - name: Codesign app bundle
@@ -109,12 +109,12 @@ jobs:
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
           # Turn our base64-encoded certificate back to a regular .p12 file
-
+          
           echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
           # We need to create a new keychain, otherwise using the certificate will prompt
           # with a UI dialog asking for the certificate password, which we can't
           # use in a headless CI environment
-    
+
           security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain 
           security default-keychain -s build.keychain
           security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
@@ -123,75 +123,13 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-
-          echo "[INFO] Signing app contents"
-
-          codesign --deep --force --verify --verbose=3 --timestamp --options=runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          #xattr -cr "$APP_PATH"
-          #codesign -d --keychain build.keychain --force --verbose -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-
-          ditto -c -k --rsrc --keepParent "Nunchuk.app" "Nunchuk-hadv.zip"         
-          #codesign --deep --verify --verbose --timestamp --options runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
-          #codesign --deep --options runtime -s "$MACOS_CERTIFICATE_NAME" --timestamp --entitlements "$ENTITLEMENTS" -i "$BUNDLE_IDENTIFIER" "$APP_PATH"
-          #way 4 ========================================================================================================================================================
-
-          echo "Verifying signature for APP: $APP_PATH"
-          codesign --verify --verbose --strict "$APP_PATH"
-          codesign --display --verbose=4 "$APP_PATH"
-          codesign -vvv --deep --strict "$APP_PATH"
-          #stapler validate "$APP_PATH"
-          #spctl -vvv --assess --type exec --raw "$APP_PATH"
-          spctl --assess --verbose=4 --type install "$APP_PATH"
-          spctl --verbose=4 --assess --type execute "$APP_PATH"
+          macdeployqt Nunchuk.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
+          #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
 
           mkdir nunchuk-mac-qt
-          mv Nunchuk.app nunchuk-mac-qt
-          mv Nunchuk-hadv.zip nunchuk-mac-qt
+          mv Nunchuk.dmg nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
-
-
-
-      - name: "Notarize app bundle"
-        working-directory: ${{runner.workspace}}/build
-        # Extract the secrets we defined earlier as environment variables
-        env:
-          APPLE_ID: ${{ secrets.IO_APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.IO_APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.IO_APPLE_TEAM_ID }}
-        run: |
-          # Store the notarization credentials so that we can prevent a UI password dialog
-          # from blocking the CI
-          APP="Nunchuk"
-          ENTITLEMENTS="${{runner.workspace}}/nunchuk-qt/Info.plist"
-          APP_PATH="${{runner.workspace}}/build/Nunchuk.app"
-          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
-          PLUGINS_PATH="$APP_PATH/Contents/PlugIns"
-
-          # store notarytool credentials
-          #xcrun notarytool store-credentials --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" notarytool --validate
-
-      #    echo "Create keychain profile"
-      #    xcrun notarytool store-credentials "notarytool-profile" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
-
-          # We can't notarize an app bundle directly, but we need to compress it as an archive.
-          # Therefore, we create a zip file containing our app bundle, so that we can send it to the
-          # notarization service
-
-          #echo "Creating temp notarization archive"
-      #    ditto -c -k --keepParent "APP_PATH" "nunchuk-mac-qt.zip"
-
-          # Here we send the notarization request to the Apple's Notarization service, waiting for the result.
-          # This typically takes a few seconds inside a CI environment, but it might take more depending on the App
-          # characteristics. Visit the Notarization docs for more information and strategies on how to optimize it if
-          # you're curious
-
-          #echo "Notarize app"
-       #   xcrun notarytool submit "nunchuk-mac-qt.zip" --keychain-profile "notarytool-profile" --wait
-
-      #    # Finally, we need to "attach the staple" to our executable, which will allow our app to be
-      #    # validated by macOS even when an internet connection is not available.
-      #    echo "Attach staple"
-      #    xcrun stapler staple "target/mac/Espanso.app"
+     
       
       - name: Get the version
         id: get_version
