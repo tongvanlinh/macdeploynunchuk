@@ -83,9 +83,9 @@ jobs:
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
-          mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
-          mv nunchuk-qt.app Nunchuk.app
-          #macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
+          #mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
+          #mv nunchuk-qt.app nunchuk-qt.app
+          #macdeployqt nunchuk-qt.app -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
       
 
       - name: Codesign app bundle
@@ -99,8 +99,8 @@ jobs:
           BUNDLE_IDENTIFIER: ${{ secrets.IO_BUNDLE_IDENTIFIER }}
           TEAMID_BUNDLE_IDENTIFIER: ${{ secrets.IO_TEAMID_BUNDLE_IDENTIFIER }}
           APP: "Nunchuk"
-          ENTITLEMENTS: "${{runner.workspace}}/build/Nunchuk.app/Contents/Info.plist"
-          APP_PATH: "${{runner.workspace}}/build/Nunchuk.app"
+          ENTITLEMENTS: "${{runner.workspace}}/build/nunchuk-qt.app/Contents/Info.plist"
+          APP_PATH: "${{runner.workspace}}/build/nunchuk-qt.app"
           FRAMEWORKS_PATH: "$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH: "$APP_PATH/Contents/PlugIns"
         run: |
@@ -123,11 +123,11 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-          macdeployqt Nunchuk.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
+          macdeployqt nunchuk-qt.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
 
           mkdir nunchuk-mac-qt
-          mv Nunchuk.dmg nunchuk-mac-qt
+          mv nunchuk-qt.dmg nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
      
       
