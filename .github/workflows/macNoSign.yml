@@ -20,7 +20,7 @@ jobs:
         env:
           GITLAB_AT: ${{ secrets.GITLAB_AT }}
         run: |
-          echo -e "machine gitlab.com\n  login bakaoh\n  password $GITLAB_AT" >~/.netrc
+          echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_AT" >~/.netrc
           git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --init --recursive
