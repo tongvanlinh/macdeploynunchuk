@@ -25,7 +25,7 @@ jobs:
           cd nunchuk-qt
           #cd contrib/libnunchuk
           git fetch --all
-          cd ../../
+          #cd ../../
           git submodule update --init --recursive
         
       - name: Install dependencies
