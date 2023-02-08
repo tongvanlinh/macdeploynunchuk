@@ -124,6 +124,8 @@ jobs:
 
           #way 4 ========================================================================================================================================================
           #macdeployqt Nunchuk.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt # -dmg
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt 
+          codesign --remove-signature Nunchuk.app
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
           codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
           #codesign --force --verify --sign "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
