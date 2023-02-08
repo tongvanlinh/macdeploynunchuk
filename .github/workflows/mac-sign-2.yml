@@ -21,7 +21,7 @@ jobs:
           GITLAB_PASS: ${{ secrets.GITLAB_PASS }}
         run: |
           echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
-          git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
+          git clone -b sign-macos https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --init --recursive
         
@@ -81,10 +81,10 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
-          mv hwi nunchuk-qt.app/Contents/MacOS/hwi
-          #mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
-          #mv nunchuk-qt.app nunchuk-qt.app
+          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
+          #mv hwi nunchuk-qt.app/Contents/MacOS/hwi
+          mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
+          mv nunchuk-qt.app Nunchuk.app
           #macdeployqt nunchuk-qt.app -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
       
 
@@ -123,11 +123,15 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-          macdeployqt nunchuk-qt.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt -dmg
+          macdeployqt Nunchuk.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt 
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
 
+          codesign --verify --verbose=4 --deep --strict "$APP_PATH"
+          
+          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
           mkdir nunchuk-mac-qt
-          mv nunchuk-qt.dmg nunchuk-mac-qt
+          mv hwi nunchuk-mac-qt
+          mv Nunchuk.app nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
      
       
