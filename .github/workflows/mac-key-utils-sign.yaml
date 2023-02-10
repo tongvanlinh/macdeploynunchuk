@@ -21,7 +21,7 @@ jobs:
           GITLAB_AT: ${{ secrets.GITLAB_AT }}
         run: |
           echo -e "machine github.com\n  login hadvluffy\n  password $GITLAB_AT" >~/.netrc
-          git clone -b sign-macos https://github.com/hadvluffy/key-utils key-utils --depth 1
+          git clone -b main https://github.com/hadvluffy/key-utils key-utils --depth 1
           cd key-utils
           git submodule update --init --recursive
         
