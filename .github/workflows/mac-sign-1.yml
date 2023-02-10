@@ -129,14 +129,14 @@ jobs:
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
 
 
-          #sign app
-          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-
           #sign all *.dylib
           find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
 
           #sign Qt frameworks
           find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
+
+          #sign app
+          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
           codesign --verify --verbose=4 --deep --strict "$APP_PATH"
           
