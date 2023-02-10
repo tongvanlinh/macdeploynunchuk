@@ -138,6 +138,8 @@ jobs:
           #sign app
           codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
 
+          macdeployqt Nunchuk.app -codesign="$MACOS_CERTIFICATE_NAME"
+
           codesign --verify --verbose=4 --deep --strict "$APP_PATH"
           
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
