@@ -116,7 +116,9 @@ jobs:
           #sign app
           #codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
 
-          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/key-utils 
+          codesign --deep --timestamp --options runtime -s "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+
+          #macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/key-utils 
 
           codesign --verify --verbose=4 --deep --strict "$APP_PATH"
 
