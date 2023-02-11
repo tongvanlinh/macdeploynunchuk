@@ -110,12 +110,12 @@ jobs:
           find "$APP_PATH" -name *.dylib | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
 
           #sign Qt frameworks
-          find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
+          #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
 
           #sign app
-          codesign  --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
+          #codesign  --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
-          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
+          #macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
           
 
           #codesign --verify --verbose=4 --deep --strict "$APP_PATH"
@@ -126,6 +126,17 @@ jobs:
 
           #macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.dmg -v
+
+
+          # Define environment variables
+          export QT_FRAMEWORK_PATH=/usr/local/opt/qt@5/lib
+          export QT_BIN_PATH=/usr/local/opt/qt@5/bin
+          export CERTIFICATE="$MACOS_CERTIFICATE_PWD"
+          export FRAMEWORKS="QtCore QtGui QtPrintSupport QtWidgets"
+          export BAD_FRAMEWORKS="QtPrintSupport"
+
+          # Call itself
+          ./.github/scripts/deploy.sh key-utils.app
 
           mkdir utils-mac-qt
           mv key-utils.app utils-mac-qt
