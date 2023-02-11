@@ -121,9 +121,10 @@ jobs:
           #spctl --verbose --assess --type execute key-utils.app
 
           #macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME
+          echo $ENTITLEMENTS
 
-          codesign --entitlements "$ENTITLEMENTS" -f -s $MACOS_CERTIFICATE_NAME "$APP_PATH"
-          codesign -dvvv "$APP_PATH"
+          #codesign --entitlements "$ENTITLEMENTS" -f -s $MACOS_CERTIFICATE_NAME "$APP_PATH"
+          #codesign -dvvv "$APP_PATH"
 
           #way 4 ========================================================================================================================================================
 
