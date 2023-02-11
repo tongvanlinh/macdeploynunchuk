@@ -104,19 +104,19 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-          macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils 
-          codesign --remove-signature key-utils.app
+          #macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils
+          #codesign --remove-signature key-utils.app
 
           #sign all *.dylib
-          find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" $
+          #find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" $
 
           #sign Qt frameworks
-          find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" $
+          #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" $
 
           #sign app
-          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
+          #codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" "$APP_PATH"
 
-          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
+          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME" -qmldir=${{runner.workspace}}/key-utils 
 
           codesign --verify --verbose=4 --deep --strict "$APP_PATH"
 
