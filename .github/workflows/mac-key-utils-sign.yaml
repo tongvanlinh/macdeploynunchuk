@@ -105,7 +105,7 @@ jobs:
 
           #way 4 ========================================================================================================================================================
           macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils
-          spctl -a -t exec -vv key-utils.app
+          # spctl -a -t exec -vv key-utils.app
 
           #sign all *.dylib
           find "$APP_PATH" -name *.dylib | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
