@@ -118,36 +118,27 @@ jobs:
 
           #macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
           
-
-          #codesign --verify --verbose=4 --deep --strict "$APP_PATH"
-          #codesign -dvvv "$APP_PATH"
-
           #spctl --verbose --assess --type execute key-utils.app
 
-
           #macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME
-          #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.dmg -v
 
-
-          # codesign -d --entitlements "$ENTITLEMENTS" "$APP_PATH"
-          # codesign -d --entitlements - key-utils.app/Contents/MacOS/key-utils
-
-          # codesign --entitlements "$ENTITLEMENTS" -f -s $MACOS_CERTIFICATE_NAME "$APP_PATH"
+          codesign --entitlements "$ENTITLEMENTS" -f -s $MACOS_CERTIFICATE_NAME "$APP_PATH"
+          codesign -dvvv "$APP_PATH"
 
           #way 4 ========================================================================================================================================================
 
           # Define environment variables
-          export QT_FRAMEWORK_PATH=/usr/local/opt/qt@5/lib
-          export QT_BIN_PATH=/usr/local/opt/qt@5/bin
-          export CERTIFICATE="$MACOS_CERTIFICATE_PWD"
-          export FRAMEWORKS="QtCore QtGui QtPrintSupport QtWidgets"
-          export BAD_FRAMEWORKS="QtPrintSupport"
+          # export QT_FRAMEWORK_PATH=/usr/local/opt/qt@5/lib
+          # export QT_BIN_PATH=/usr/local/opt/qt@5/bin
+          # export CERTIFICATE="$MACOS_CERTIFICATE_PWD"
+          # export FRAMEWORKS="QtCore QtGui QtPrintSupport QtWidgets"
+          # export BAD_FRAMEWORKS="QtPrintSupport"
 
-          echo ${{github.workspace}}/.github/scripts/deploy.sh
-          chmod +x ${{github.workspace}}/.github/scripts/deploy.sh
+          # echo ${{github.workspace}}/.github/scripts/deploy.sh
+          # chmod +x ${{github.workspace}}/.github/scripts/deploy.sh
           # Call itself
-          ${{github.workspace}}/.github/scripts/./deploy.sh key-utils.app
-          #way 4 ========================================================================================================================================================
+          # ${{github.workspace}}/.github/scripts/./deploy.sh key-utils.app
+          # way 4 ========================================================================================================================================================
           mkdir utils-mac-qt
           mv key-utils.app utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
