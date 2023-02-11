@@ -137,9 +137,10 @@ jobs:
           export BAD_FRAMEWORKS="QtPrintSupport"
 
           # Call itself
+        run: >
           ./.github/scripts/deploy.sh key-utils.app
           #way 4 ========================================================================================================================================================
-
+        run: |
           mkdir utils-mac-qt
           mv key-utils.app utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
