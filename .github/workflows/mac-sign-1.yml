@@ -99,10 +99,11 @@ jobs:
           BUNDLE_IDENTIFIER: ${{ secrets.IO_BUNDLE_IDENTIFIER }}
           TEAMID_BUNDLE_IDENTIFIER: ${{ secrets.IO_TEAMID_BUNDLE_IDENTIFIER }}
           APP: "Nunchuk"
-          ENTITLEMENTS: "${{runner.workspace}}/build/Nunchuk.app/Contents/Info.plist"
+          #ENTITLEMENTS: "${{runner.workspace}}/build/Nunchuk.app/Contents/Info.plist"
           APP_PATH: "${{runner.workspace}}/build/Nunchuk.app"
           FRAMEWORKS_PATH: "$APP_PATH/Contents/Frameworks"
           PLUGINS_PATH: "$APP_PATH/Contents/PlugIns"
+          ENTITLEMENTS: ${{runner.workspace}}/nunchuk-qt/Nunchuk.entitlements
         run: |
           export PATH="/usr/local/opt/qt@5/bin:$PATH"
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
