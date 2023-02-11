@@ -115,13 +115,13 @@ jobs:
           #sign app
           codesign  --sign "$MACOS_CERTIFICATE_NAME" "$APP_PATH"
 
-          macdeployqt -codesign="$MACOS_CERTIFICATE_NAME"
+          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
 
-          macdeployqt -dmg
+          macdeployqt key-utils.app -dmg
 
           hdiutil create -srcfolder “key-utils.app” -format UDCO -imagekey zlib-level=9 -scrub -volname AppName-osx AppName-osx-$VERSION.unnotarized.dmg
 
-          macdeployqt -sign-for-notarization=$MACOS_CERTIFICATE_NAME
+          macdeployqt key-utils.dmg -sign-for-notarization=$MACOS_CERTIFICATE_NAME
 
           xcrun altool --notarize-app --primary-bundle-id "$PRODUCT_BUNDLE_IDENTIFIER" --username “$USERNAME” --password “@keychain:NOTARIZATION_PASSWORD” --file "key-utils-osx-$VERSION.unnotarized.dmg”
 
@@ -137,7 +137,7 @@ jobs:
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.dmg -v
 
           mkdir utils-mac-qt
-          mv key-utils.app utils-mac-qt
+          mv key-utils.dmg utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
           
       - name: Get the version
