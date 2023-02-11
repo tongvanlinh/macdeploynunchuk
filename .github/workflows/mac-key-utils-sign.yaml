@@ -107,7 +107,7 @@ jobs:
           macdeployqt key-utils.app -qmldir=${{runner.workspace}}/key-utils
 
           #sign all *.dylib
-          find "$APP_PATH" -name *.dylib | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
+          #find "$APP_PATH" -name *.dylib | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
 
           #sign Qt frameworks
           #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign  --sign "$MACOS_CERTIFICATE_NAME" $
@@ -127,6 +127,7 @@ jobs:
           #macdeployqt key-utils.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME
           #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime key-utils.dmg -v
 
+          #way 4 ========================================================================================================================================================
 
           # Define environment variables
           export QT_FRAMEWORK_PATH=/usr/local/opt/qt@5/lib
@@ -137,10 +138,13 @@ jobs:
 
           # Call itself
           ./.github/scripts/deploy.sh key-utils.app
+          #way 4 ========================================================================================================================================================
 
           mkdir utils-mac-qt
           mv key-utils.app utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
+
+        shell: bash
           
       - name: Get the version
         id: get_version
