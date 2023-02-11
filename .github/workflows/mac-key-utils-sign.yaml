@@ -124,6 +124,7 @@ jobs:
           echo $ENTITLEMENTS
 
           #codesign --entitlements "$ENTITLEMENTS" -f -s $MACOS_CERTIFICATE_NAME "$APP_PATH"
+          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
           #codesign -dvvv "$APP_PATH"
 
           #way 4 ========================================================================================================================================================
