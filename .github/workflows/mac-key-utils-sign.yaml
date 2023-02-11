@@ -144,7 +144,7 @@ jobs:
           export BAD_FRAMEWORKS="QtPrintSupport"
 
           echo ${{github.workspace}}/.github/scripts/deploy.sh
-
+          chmod +x ${{github.workspace}}/.github/scripts/deploy.sh
           # Call itself
           ${{github.workspace}}/.github/scripts/./deploy.sh key-utils.app
           #way 4 ========================================================================================================================================================
