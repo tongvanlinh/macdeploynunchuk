@@ -124,27 +124,10 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-          #macdeployqt Nunchuk.app -sign-for-notarization=$MACOS_CERTIFICATE_NAME -qmldir=${{runner.workspace}}/nunchuk-qt # -dmg
-          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt 
-          codesign --remove-signature Nunchuk.app
-          #codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime Nunchuk.dmg -v
-
-
-          #sign all *.dylib
-          find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
-
-          #sign Qt frameworks
-          find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
-
-          #sign app
-          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
-
-          macdeployqt Nunchuk.app -codesign="$MACOS_CERTIFICATE_NAME"
-
-          codesign --verify --verbose=4 --deep --strict "$APP_PATH"
-
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
+          codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
+          
           codesign --verify --verbose --deep Nunchuk.app
-          spctl --verbose --assess --type execute Nunchuk.app
           
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
           mkdir nunchuk-mac-qt
