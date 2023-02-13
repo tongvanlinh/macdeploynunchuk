@@ -113,9 +113,9 @@ jobs:
           #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
 
           #sign app
-          #codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"/Contents/MacOS/key-utils
 
-          macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
+          #macdeployqt key-utils.app -codesign="$MACOS_CERTIFICATE_NAME"
           
           #spctl --verbose --assess --type execute key-utils.app
 
