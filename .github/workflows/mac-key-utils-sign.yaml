@@ -113,8 +113,8 @@ jobs:
           #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" $
 
           #sign app
-          #codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"/Contents/MacOS/key-utils
-          codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" key-utils.app
+          codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime -i "$PRODUCT_BUNDLE_IDENTIFIER" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          #codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" key-utils.app
 
           codesign -dvvv "$APP_PATH"
 
