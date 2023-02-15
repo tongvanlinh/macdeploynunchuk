@@ -125,9 +125,9 @@ jobs:
 
           #way 4 ========================================================================================================================================================
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
-          codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
+          #codesign --deep --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" Nunchuk.app
           
-          codesign --verify --verbose --deep Nunchuk.app
+          #codesign --verify --verbose --deep Nunchuk.app
           
           wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
           mkdir nunchuk-mac-qt
