@@ -98,4 +98,4 @@ jobs:
         uses: 'actions/upload-artifact@v2'
         with:
           name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
-          path: ${{runner.workspace}}/build/Nunchuk.app
+          path: ${{runner.workspace}}/build/nunchuk-mac-qt.zip
