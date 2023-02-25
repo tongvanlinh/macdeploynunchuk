@@ -93,9 +93,7 @@ jobs:
           security find-identity -v -p codesigning
 
           #way 4 ========================================================================================================================================================
-           # We finally codesign our app bundle, specifying the Hardened runtime option
-          /usr/bin/codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime "$APP_PATH" -v
-
+          # We finally codesign our app bundle, specifying the Hardened runtime option
           #sign all *.dylib
           find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" -o runtime $
 
