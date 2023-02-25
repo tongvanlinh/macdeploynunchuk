@@ -98,7 +98,7 @@ jobs:
           find "$APP_PATH" -name *.dylib | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" -o runtime $
 
           #sign Qt frameworks
-          #find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME"  -o runtime $
+          find "$APP_PATH" -name Qt* -type f | xargs -I $ codesign --force --verify --verbose --timestamp -s "$MACOS_CERTIFICATE_NAME" -o runtime $
 
           #sign app
           codesign --force -s "$MACOS_CERTIFICATE_NAME" --options runtime "$APP_PATH" -v
