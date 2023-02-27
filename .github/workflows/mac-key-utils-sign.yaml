@@ -91,7 +91,8 @@ jobs:
           security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MACOS_CI_KEYCHAIN_PWD" build.keychain
           security find-identity -v -p codesigning
-
+          xcrun --find altool
+          xcrun --find notarytool
           #way 4 ========================================================================================================================================================
           # We finally codesign our app bundle, specifying the Hardened runtime option
           #sign all *.dylib
