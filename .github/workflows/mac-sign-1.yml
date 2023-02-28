@@ -139,6 +139,7 @@ jobs:
 
 
       - name: "Notarize app bundle"
+        working-directory: ${{runner.workspace}}/build
         # Extract the secrets we defined earlier as environment variables
         env:
           PROD_MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.IO_APPLE_ID }}
