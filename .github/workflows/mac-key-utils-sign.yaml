@@ -144,7 +144,7 @@ jobs:
 
           #way 4 ========================================================================================================================================================
           mkdir utils-mac-qt
-          mv KeyUtils.app utils-mac-qt
+          mv notarization.zip utils-mac-qt
           zip -r key-utils.zip utils-mac-qt
           
       - name: Get the version
