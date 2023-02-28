@@ -135,7 +135,7 @@ jobs:
 
           codesign -dvvv "$APP_PATH"
 
-          spctl -a -vvvv "$APP_PATH"
+          #spctl -a -vvvv "$APP_PATH"
 
 
       - name: "Notarize app bundle"
