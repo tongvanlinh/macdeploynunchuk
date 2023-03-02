@@ -93,7 +93,7 @@ jobs:
           brew install libusb python3 poetry
           git clone https://github.com/bitcoin-core/HWI.git
           cd HWI
-          pip3 poetry
+          pip3 install poetry
           poetry install
           pip3 install .
           pip3 install -U setuptools
