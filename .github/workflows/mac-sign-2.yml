@@ -58,7 +58,11 @@ jobs:
           security find-identity -v -p codesigning
           xcrun --find altool
           xcrun --find notarytool
+          find . -name "hwi"
+          find . -name "entitlements.plist"
+          echo "$ENTITLEMENTS"
           #Codesign ========================================================================================================================================================
-          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${{runner.workspace}}/build/hwi" -v
+          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" "${{runner.workspace}}/build/hwi" -v
           codesign -dvvv "${{runner.workspace}}/build/hwi"
           #spctl -a -vvvv "$APP_PATH"
+          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${{runner.workspace}}/build/hwi" -v
