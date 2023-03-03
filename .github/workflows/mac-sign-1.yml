@@ -98,7 +98,10 @@ jobs:
           pip3 install .
           pip3 install -U setuptools
           python3 setup.py install
+          echo "Installed hwi"
           whereis hwi
+          cd build
+          cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi Nunchuk.app/Contents/MacOS/
 
       - name: Codesign app bundle
         working-directory: ${{runner.workspace}}/build
@@ -145,7 +148,7 @@ jobs:
           #sign app
           codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/Nunchuk" -v
           
-          #codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/hwi" -v
+          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/hwi" -v
 
           codesign -dvvv "$APP_PATH"
 
