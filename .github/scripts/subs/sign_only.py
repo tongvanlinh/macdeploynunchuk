@@ -32,11 +32,3 @@ def qt_sign_only(app_name: str, developer_ID: str, team_ID: str, keychain_passwo
     os.system(f"codesign -dvvv {app_name}.app")
     print("******* Verify Bundle using dpctl ***********")
     os.system(f"spctl -a -vvvv {app_name}.app")
-
-qt_sign_only("Nunchuk",
-            "Nunchuk Inc (9568FP2WHH)",
-            "9568FP2WHH",
-            "ha0981526891",
-            "hadv@nunchuk.io",
-            "ztly-xbse-ivbo-eltv",
-            "io.nunchuk.macos")
