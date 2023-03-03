@@ -145,9 +145,8 @@ jobs:
           find "$APP_PATH" -name *.plugin -type f | xargs -I $ codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS" $
 
           #sign app
-          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/Nunchuk" -v
-          
           codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/hwi" -v
+          codesign --force --verify --verbose --options=runtime --timestamp -s "$MACOS_CERTIFICATE_NAME" --entitlements "$ENTITLEMENTS"  "${APP_PATH}/Contents/MacOS/Nunchuk" -v
 
           codesign -dvvv "$APP_PATH"
 
