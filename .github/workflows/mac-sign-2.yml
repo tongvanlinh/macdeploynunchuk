@@ -27,8 +27,8 @@ jobs:
           pip3 install -U setuptools
           python3 setup.py install
           echo "Installed hwi"
-          whereis hwi
           find . -name "hwi"
+          cd ..
           mkdir build
           cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/
           find . -name "hwi"
