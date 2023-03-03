@@ -100,7 +100,7 @@ jobs:
           python3 setup.py install
           echo "Installed hwi"
           cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
-          find . -name "hwi"
+          find ${{runner.workspace}} -name "hwi"
 
       - name: Codesign app bundle
         working-directory: ${{runner.workspace}}/build
