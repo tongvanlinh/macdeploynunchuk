@@ -101,7 +101,7 @@ jobs:
           echo "Installed hwi"
           whereis hwi
           cd build
-          cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi Nunchuk.app/Contents/MacOS/
+          cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
 
       - name: Codesign app bundle
         working-directory: ${{runner.workspace}}/build
