@@ -91,8 +91,8 @@ jobs:
         working-directory: ${{runner.workspace}}
         run: |
           brew install libusb python3 poetry
-          git clone https://github.com/bitcoin-core/HWI.git
-          cd HWI
+          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
+          cd HWI-2.2.1
           pip3 install poetry
           poetry install
           pip3 install .
