@@ -45,10 +45,6 @@ def qt_notarytool_notarize() -> bool:
     #os.system(f"xcrun notarytool log "86fa5ea2-ebd4-4027-b379-549d24926969" --keychain-profile "notarytool-profile"")
 
     os.system(f"xcrun stapler staple {app_name}.dmg")
-    
-    """
-    xcrun notarytool store-credentials 'notarytool-profile' --apple-id "hadv@nunchuk.io" --team-id "9568FP2WHH" --password "ztly-xbse-ivbo-eltv"
-    xcrun notarytool submit "Nunchuk.dmg" --keychain-profile 'notarytool-profile' --wait
-    """
+
 
 qt_notarytool_notarize()
