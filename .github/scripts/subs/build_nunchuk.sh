@@ -9,9 +9,6 @@ export BOOST_ROOT="${local_homebrew}/opt/boost@1.76"
 cd build
 rm -r Nunchuk.app
 cmake --build . --config Release -j8
-#wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.1.0/hwi-2.1.0-mac-amd64.tar.gz" -O - | tar -xz
-#cp ../hwi nunchuk-qt.app/Contents/MacOS/hwi
-#mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
-#mv nunchuk-qt.app Nunchuk.app
-cp ${runner_workspace}/nunchuck-qt/myfile.sh Nunchuk.app/Contents/MacOS/
-#macdeployqt Nunchuk.app -qmldir=${workspace}/nunchuk-qt -always-overwrite
+cp /opt/homebrew/bin/hwi nunchuk-qt.app/Contents/MacOS/hwi
+mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
+mv nunchuk-qt.app Nunchuk.app

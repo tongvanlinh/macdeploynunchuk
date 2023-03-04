@@ -1,7 +1,15 @@
 import os
 import subprocess
 
-def qt_notarytool_notarize(app_name: str, developer_ID: str, team_ID: str, keychain_password: str, apple_username: str,secret_2FA_password: str, bundle_ID: str) -> bool:
+def qt_notarytool_notarize() -> bool:
+    runner_workspace = os.environ.get('runner_workspace')
+    app_name = os.environ.get('AppName')
+    developer_ID = os.environ.get('DeveloperID')
+    team_ID = os.environ.get('TeamID')
+    keychain_password = os.environ.get('KeyChainPassword')
+    apple_username = os.environ.get('AppleUserName')
+    secret_2FA_password = os.environ.get('Secret_2FA_password')
+    bundle_ID = os.environ.get('BundleID')
     print("app_name: " + app_name)
     print("developer_ID: " + developer_ID)
     print("team_ID: " + team_ID)
@@ -9,6 +17,7 @@ def qt_notarytool_notarize(app_name: str, developer_ID: str, team_ID: str, keych
     print("apple_username: " + apple_username)
     print("secret_2FA_password: " + secret_2FA_password)
     print("bundle_ID: " + bundle_ID)
+
     cwd = os.getcwd() 
     print(cwd)
     workspace="/Users/haduong/gitLab"
@@ -42,10 +51,4 @@ def qt_notarytool_notarize(app_name: str, developer_ID: str, team_ID: str, keych
     xcrun notarytool submit "Nunchuk.dmg" --keychain-profile 'notarytool-profile' --wait
     """
 
-qt_notarytool_notarize("Nunchuk",
-                        "Nunchuk Inc (9568FP2WHH)",
-                        "9568FP2WHH",
-                        "ha0981526891",
-                        "hadv@nunchuk.io",
-                        "ztly-xbse-ivbo-eltv",
-                        "io.nunchuk.macos")
+qt_notarytool_notarize()

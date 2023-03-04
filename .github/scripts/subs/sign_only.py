@@ -1,7 +1,15 @@
 import os
 import subprocess
 
-def qt_sign_only(app_name: str, developer_ID: str, team_ID: str, keychain_password: str, apple_username: str,secret_2FA_password: str, bundle_ID: str) -> bool:
+def qt_sign_only() -> bool:
+    runner_workspace = os.environ.get('runner_workspace')
+    app_name = os.environ.get('AppName')
+    developer_ID = os.environ.get('DeveloperID')
+    team_ID = os.environ.get('TeamID')
+    keychain_password = os.environ.get('KeyChainPassword')
+    apple_username = os.environ.get('AppleUserName')
+    secret_2FA_password = os.environ.get('Secret_2FA_password')
+    bundle_ID = os.environ.get('BundleID')
     print("app_name: " + app_name)
     print("developer_ID: " + developer_ID)
     print("team_ID: " + team_ID)
@@ -9,7 +17,7 @@ def qt_sign_only(app_name: str, developer_ID: str, team_ID: str, keychain_passwo
     print("apple_username: " + apple_username)
     print("secret_2FA_password: " + secret_2FA_password)
     print("bundle_ID: " + bundle_ID)
-    runner_workspace = os.environ.get('runner_workspace')
+
     print(runner_workspace)
     entitlementP=runner_workspace + "/nunchuck-qt/entitlements.plist"
     print(entitlementP)
@@ -32,3 +40,5 @@ def qt_sign_only(app_name: str, developer_ID: str, team_ID: str, keychain_passwo
     os.system(f"codesign -dvvv {app_name}.app")
     print("******* Verify Bundle using dpctl ***********")
     os.system(f"spctl -a -vvvv {app_name}.app")
+
+qt_sign_only()
