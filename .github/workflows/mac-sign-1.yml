@@ -165,7 +165,7 @@ jobs:
         run: |
           # Store the notarization credentials so that we can prevent a UI password dialog
           # from blocking the CI
-          security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
+          # security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
           echo "Create keychain profile"
           xcrun notarytool store-credentials "notarytool-profile" --apple-id "$PROD_MACOS_NOTARIZATION_APPLE_ID" --team-id "$PROD_MACOS_NOTARIZATION_TEAM_ID" --password "$PROD_MACOS_NOTARIZATION_PWD"
 
