@@ -21,7 +21,7 @@ jobs:
           GITLAB_PASS: ${{ secrets.GITLAB_PASS }}
         run: |
           echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
-          git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
+          git clone -b debug-ledger https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --init --recursive
         
@@ -78,7 +78,7 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.2.0/hwi-2.2.0-mac-amd64.tar.gz" -O - | tar -xz
+          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.2.1/hwi-2.2.1-mac-amd64.tar.gz" -O - | tar -xz
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
