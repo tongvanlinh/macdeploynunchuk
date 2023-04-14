@@ -22,8 +22,8 @@ jobs:
         run: |
           echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
           git clone -b debug-ledger https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
-          pushd nunchuck-qt/contrib/libnunchuk
-          git remote set-url origin https://gitlab.com/nunchuck/libnunchuk
+          pushd nunchuck-qt/contrib/
+          git submodule add https://gitlab.com/nunchuck/libnunchuk.git
           popd
           cd nunchuk-qt
           git submodule update --init --recursive
