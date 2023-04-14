@@ -23,9 +23,6 @@ jobs:
           echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
           git clone -b debug-ledger https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
-          git submodule init
-          cd contrib
-          git remote add debug/hwi https://gitlab.com/nunchuck/libnunchuk.git
           git submodule update --init --recursive
         
       - name: Install dependencies
