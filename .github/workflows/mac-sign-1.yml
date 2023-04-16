@@ -81,26 +81,26 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.2.1/hwi-2.2.1-mac-amd64.tar.gz" -O - | tar -xz
-          #mv hwi nunchuk-qt.app/Contents/MacOS/hwi
+          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.2.1/hwi-2.2.1-mac-amd64.tar.gz" -O - | tar -xz
+          mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
       
-      - name: Build HWI
-        working-directory: ${{runner.workspace}}
-        run: |
-          brew install libusb python3 poetry
-          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
-          cd HWI-2.2.1
-          pip3 install poetry
-          poetry install
-          pip3 install .
-          pip3 install -U setuptools
-          python3 setup.py install
-          echo "Installed hwi"
-          cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
-          find ${{runner.workspace}} -name "hwi"
+      #- name: Build HWI
+      # working-directory: ${{runner.workspace}}
+      #  run: |
+      #    brew install libusb python3 poetry
+      #    wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
+      #    cd HWI-2.2.1
+      #    pip3 install poetry
+      #    poetry install
+      #    pip3 install .
+      #    pip3 install -U setuptools
+      #    python3 setup.py install
+      #    echo "Installed hwi"
+      #    cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
+      #    find ${{runner.workspace}} -name "hwi"
 
       - name: Codesign app bundle
         working-directory: ${{runner.workspace}}/build
