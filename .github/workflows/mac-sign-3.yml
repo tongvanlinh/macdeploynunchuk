@@ -19,7 +19,7 @@ jobs:
         working-directory: ${{runner.workspace}}
         shell: bash
         run: |
-          brew install libusb python3 poetry
+          brew install libusb python3 poetry pyenv
           wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
           cd HWI-2.2.1
           pip3 install poetry
