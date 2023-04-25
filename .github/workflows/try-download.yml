@@ -19,7 +19,8 @@ jobs:
         working-directory: ${{runner.workspace}}
         shell: bash
         run: |
-          wget -c -q "https://github.com/hadvluffy/macdeploynunchuk/blob/main/hwi-2.2.1-mac-amd64.tar.gz" -O - | tar -xz
+          wget -c -q "https://github.com/hadvluffy/macdeploynunchuk/blob/main/hwi-2.2.1-mac-amd64.tar.gz"
+          tar xf hwi-2.2.1-mac-amd64.tar.gz
           find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
 
       
