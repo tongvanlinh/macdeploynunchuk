@@ -81,7 +81,7 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          mv macdeploynunchuk/hwi-2.2.1-mac-amd64.tar.gz .
+          mv ${{runner.workspace}}/macdeploynunchuk/hwi-2.2.1-mac-amd64.tar.gz .
           tar -xf hwi-2.2.1-mac-amd64.tar.gz
           find ${{runner.workspace}} -name "hwi"
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
