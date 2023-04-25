@@ -1,4 +1,4 @@
-name: mac-build-hwi
+name: try-download-hwi
 
 on:
   push:
