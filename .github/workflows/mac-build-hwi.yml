@@ -34,5 +34,5 @@ jobs:
       - name: Upload Artifact
         uses: 'actions/upload-artifact@v2'
         with:
-          name: hwi-2.2.1-mac-amd64.tar.gz
+          name: hwi-2.2.1-mac-amd64
           path: ${{runner.workspace}}/HWI-2.2.1/dist/hwi-2.2.1-mac-amd64.tar.gz
