@@ -27,19 +27,10 @@ jobs:
           poetry install
           pip3 install .
           pip3 install -U setuptools
-          #pip install pyinstaller
-          #python3 setup.py install
-          #pyinstaller --onefile setup.py
           bash contrib/build_bin.sh --without-gui
-          echo "Installed hwi"
-          #cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
-          find ${{runner.workspace}} -name "hwi"
-          
-          mkdir nunchuk-mac-qt
-          mv /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi nunchuk-mac-qt
-          zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
-     
-      
+          echo "find hwi"
+          find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
@@ -48,4 +39,4 @@ jobs:
         uses: 'actions/upload-artifact@v2'
         with:
           name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
-          path: ${{runner.workspace}}/build/nunchuk-mac-qt.zip
+          path: ${{runner.workspace}}/HWI-2.2.1/dist/hwi-2.2.1-mac-amd64.tar.gz
