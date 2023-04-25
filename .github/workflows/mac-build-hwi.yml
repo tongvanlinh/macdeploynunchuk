@@ -31,12 +31,8 @@ jobs:
           echo "find hwi"
           find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
 
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
-
       - name: Upload Artifact
         uses: 'actions/upload-artifact@v2'
         with:
-          name: nunchuk-mac-${{ steps.get_version.outputs.VERSION }}
+          name: hwi-2.2.1-mac-amd64.tar.gz
           path: ${{runner.workspace}}/HWI-2.2.1/dist/hwi-2.2.1-mac-amd64.tar.gz
