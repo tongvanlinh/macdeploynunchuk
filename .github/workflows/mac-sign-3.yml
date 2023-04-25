@@ -30,7 +30,7 @@ jobs:
           #pip install pyinstaller
           #python3 setup.py install
           #pyinstaller --onefile setup.py
-          sh contrib/build_bin.sh
+          bash contrib/build_bin.sh
           echo "Installed hwi"
           #cp /Library/Frameworks/Python.framework/Versions/3.11/bin/hwi ${{runner.workspace}}/build/Nunchuk.app/Contents/MacOS/
           find ${{runner.workspace}} -name "hwi"
