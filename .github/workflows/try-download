@@ -1,0 +1,25 @@
+name: mac-build-hwi
+
+on:
+  push:
+    tags:
+    - '*'
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-11
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2  
+      
+      - name: Build HWI
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          wget -c -q "https://github.com/hadvluffy/macdeploynunchuk/blob/main/hwi-2.2.1-mac-amd64.tar.gz" -O - | tar -xz
+          find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+
+      
