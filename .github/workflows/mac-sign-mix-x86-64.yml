@@ -1,4 +1,4 @@
-name: mac-sign-mix-build-hwi-app
+name: mac-sign-x86-64
 
 on:
   push:
