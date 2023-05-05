@@ -1,4 +1,4 @@
-name: mac-sign-x86-64
+name: mac-sign-mix-x86-64
 
 on:
   push:
