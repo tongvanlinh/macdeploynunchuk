@@ -1,4 +1,4 @@
-name: build-macos-11-arm64
+name: 3-build-macos-11-arm64
 
 on:
   push:
