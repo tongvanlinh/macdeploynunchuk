@@ -9,14 +9,11 @@ on:
 
 jobs:
   build:
-    runs-on: macos-11
+    runs-on: m1max
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          architecture: arm64
-          distribution: macos-11
  
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
