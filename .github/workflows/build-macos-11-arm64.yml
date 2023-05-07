@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: m1max
+    runs_on: apple-silicon-m1
 
     steps:
       - name: Checkout
