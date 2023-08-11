@@ -1,4 +1,4 @@
-name: 2-mac-sign-mix-x86-64
+name: mac-sign-x86-64-byzantine
 
 on:
   push:
