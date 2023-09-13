@@ -20,28 +20,10 @@ jobs:
         env:
           GITLAB_PASS: ${{ secrets.GITLAB_PASS }}
         run: |
-          find  /usr/local/Cellar/ -name libfreetype.6.dylib
-          find  /usr/local/Cellar/ -name libglib-2.0.0.dylib
-          find  /usr/local/Cellar/ -name libgthread-2.0.0.dylib
-          find  /usr/local/Cellar/ -name libintl.8.dylib
-          find  /usr/local/Cellar/ -name libjpeg.8.dylib
-          find  /usr/local/Cellar/ -name liblzma.5.dylib
-          find  /usr/local/Cellar/ -name libolm.3.dylib
-          find  /usr/local/Cellar/ -name libpcre2-16.0.dylib
-          find  /usr/local/Cellar/ -name libpcre2-8.0.dylib
-          find  /usr/local/Cellar/ -name libpng16.16.dylib
-          find  /usr/local/Cellar/ -name libqt5keychain.1.dylib
-          find  /usr/local/Cellar/ -name libsharpyuv.0.dylib
-          find  /usr/local/Cellar/ -name libtiff.6.dylib
-          find  /usr/local/Cellar/ -name libwebp.7.dylib
-          find  /usr/local/Cellar/ -name libwebpdemux.2.dylib
-          find  /usr/local/Cellar/ -name libwebpmux.3.dylib
-          find  /usr/local/Cellar/ -name libzstd.1.dylib
-
-          #echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
-          #git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
-          #cd nunchuk-qt
-          #git submodule update --init --recursive
+          echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
+          git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
+          cd nunchuk-qt
+          git submodule update --init --recursive
         
       - name: Install dependencies
         run: |
