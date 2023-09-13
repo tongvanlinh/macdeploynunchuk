@@ -51,6 +51,23 @@ jobs:
           brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm
           brew info qt5
           brew info pcre2
+          find  /usr/local/Cellar/ -name libfreetype.6.dylib
+          find  /usr/local/Cellar/ -name libglib-2.0.0.dylib
+          find  /usr/local/Cellar/ -name libgthread-2.0.0.dylib
+          find  /usr/local/Cellar/ -name libintl.8.dylib
+          find  /usr/local/Cellar/ -name libjpeg.8.dylib
+          find  /usr/local/Cellar/ -name liblzma.5.dylib
+          find  /usr/local/Cellar/ -name libolm.3.dylib
+          find  /usr/local/Cellar/ -name libpcre2-16.0.dylib
+          find  /usr/local/Cellar/ -name libpcre2-8.0.dylib
+          find  /usr/local/Cellar/ -name libpng16.16.dylib
+          find  /usr/local/Cellar/ -name libqt5keychain.1.dylib
+          find  /usr/local/Cellar/ -name libsharpyuv.0.dylib
+          find  /usr/local/Cellar/ -name libtiff.6.dylib
+          find  /usr/local/Cellar/ -name libwebp.7.dylib
+          find  /usr/local/Cellar/ -name libwebpdemux.2.dylib
+          find  /usr/local/Cellar/ -name libwebpmux.3.dylib
+          find  /usr/local/Cellar/ -name libzstd.1.dylib
 
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
