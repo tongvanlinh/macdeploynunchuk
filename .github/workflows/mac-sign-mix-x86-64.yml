@@ -30,7 +30,7 @@ jobs:
           # brew uninstall --force pcre2
           # brew uninstall --ignore-dependencies pcre2
           # brew install pcre2
-          pcre2 --version
+          which pcre2
           brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm
 
       - name: Install qtkeychain
