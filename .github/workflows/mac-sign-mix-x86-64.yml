@@ -89,6 +89,11 @@ jobs:
           bash contrib/build_bin.sh --without-gui
           echo "find hwi"
           find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+
+      - name: Download macdeployqt
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
           git clone git@github.com:crystalidea/macdeployqt-universal.git
           
       - name: Deploy Dmg
