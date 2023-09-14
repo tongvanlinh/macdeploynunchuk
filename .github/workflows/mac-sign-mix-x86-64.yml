@@ -105,7 +105,7 @@ jobs:
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
-          ${{runner.workspace}}/macdeployqt-universal/bin/macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
+          ${{runner.workspace}}/macdeploynunchuk/macdeployqt -verbose=3 Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
           cd Nunchuk.app/Contents/Frameworks/
           ls
 
