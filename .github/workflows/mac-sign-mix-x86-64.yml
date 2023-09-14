@@ -20,6 +20,8 @@ jobs:
         env:
           GITLAB_PASS: ${{ secrets.GITLAB_PASS }}
         run: |
+          find / -name macdeployqt
+          
           echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
           git clone -b online https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
@@ -89,12 +91,6 @@ jobs:
           bash contrib/build_bin.sh --without-gui
           echo "find hwi"
           find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
-
-      - name: Download macdeployqt
-        working-directory: ${{runner.workspace}}
-        shell: bash
-        run: |
-          git clone git@github.com:crystalidea/macdeployqt-universal.git
           
       - name: Deploy Dmg
         working-directory: ${{runner.workspace}}/build
