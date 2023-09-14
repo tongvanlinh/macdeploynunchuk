@@ -14,7 +14,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
- 
+        
+      - name: Install dependencies
+        run: |
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 libevent sqlite sqlcipher libolm    
+          cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
+          git stash
+          git checkout 8264919fc5b75b989d8371f15508022f15921aaf
+          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install qt@5.rb
+          
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
         env:
@@ -24,18 +34,6 @@ jobs:
           git clone -b byzantine https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt --depth 1
           cd nunchuk-qt
           git submodule update --init --recursive
-
-      - name: Install dependencies
-        run: |
-          brew unlink glib
-          cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
-          git stash
-          git checkout 8264919fc5b75b989d8371f15508022f15921aaf
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install qt@5.rb
-          brew install glib.rb
-          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 libevent sqlite sqlcipher libolm
 
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
