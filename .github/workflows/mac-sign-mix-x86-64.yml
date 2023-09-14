@@ -30,7 +30,7 @@ jobs:
           brew unlink glib
           cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
           git stash
-          git checkout 8264919fc5b75b989d8371f15508022f15921aaf
+          git checkout 9e463ac980c654cb46bb1e0cc92cc35be012ba01
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           export HOMEBREW_NO_AUTO_UPDATE=1
           brew install qt@5.rb
