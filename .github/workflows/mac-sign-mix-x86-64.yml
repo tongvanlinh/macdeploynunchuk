@@ -89,6 +89,7 @@ jobs:
           bash contrib/build_bin.sh --without-gui
           echo "find hwi"
           find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+          git clone git@github.com:crystalidea/macdeployqt-universal.git
           
       - name: Deploy Dmg
         working-directory: ${{runner.workspace}}/build
@@ -103,7 +104,7 @@ jobs:
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
-          ${{runner.workspace}}/macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
+          ${{runner.workspace}}/macdeployqt-universal/bin/macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
           cd Nunchuk.app/Contents/Frameworks/
           ls
 
