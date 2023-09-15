@@ -104,7 +104,8 @@ jobs:
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
           chmod +x ${{runner.workspace}}/macdeploynunchuk/macdeployqt
-          ${{runner.workspace}}/macdeploynunchuk/macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
+          ${{runner.workspace}}/macdeploynunchuk/macdeployqt Nunchuk.app -verbose=1 -qtdir=/usr/local/opt/qt@5
+#          ${{runner.workspace}}/macdeploynunchuk/macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
           cd Nunchuk.app/Contents/Frameworks/
           ls
 
