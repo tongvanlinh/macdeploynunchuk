@@ -17,6 +17,7 @@ jobs:
         
       - name: Install dependencies
         run: |
+          uname -m
           brew unlink glib
           cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
           git stash
