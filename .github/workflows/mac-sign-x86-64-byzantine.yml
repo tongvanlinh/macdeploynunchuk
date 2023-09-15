@@ -17,16 +17,8 @@ jobs:
         
       - name: Install dependencies
         run: |
-          uname -m
-          brew unlink glib
-          cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
-          git stash
-          git checkout 8264919fc5b75b989d8371f15508022f15921aaf
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install qt@5.rb
-          brew install glib.rb
-          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 libevent sqlite sqlcipher libolm
+          brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm
+          brew update && brew reinstall qt@5 glib freetype
 
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
@@ -112,14 +104,6 @@ jobs:
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
-          ls -l Nunchuk.app
-          ls -l Nunchuk.app/Contents
-          ls -l Nunchuk.app/Contents/PlugIns
-          ls -l Nunchuk.app/Contents/PlugIns/quick
-          rm Nunchuk.app/Contents/PlugIns/quick/libqtquickcontrols2fusionstyleplugin.dylib
-          rm Nunchuk.app/Contents/PlugIns/quick/libqtquickcontrols2imaginestyleplugin.dylib
-          rm Nunchuk.app/Contents/PlugIns/quick/libqqc2materialstyleplugin.dylib
-          rm Nunchuk.app/Contents/PlugIns/quick/libqtquickcontrols2universalstyleplugin.dylib
           macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
           # mkdir nunchuk-mac-qt
           # mv Nunchuk.app nunchuk-mac-qt
