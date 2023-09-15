@@ -91,6 +91,7 @@ jobs:
           mv nunchuk-qt.app Nunchuk.app
           macdeployqt Nunchuk.app -verbose=3 -qmldir=${{runner.workspace}}/nunchuk-qt
           # macdeployqt Nunchuk.app -dmg
+          mkdir nunchuk-mac-qt
           mv Nunchuk.app nunchuk-mac-qt
           zip -r nunchuk-mac-qt.zip nunchuk-mac-qt
 
