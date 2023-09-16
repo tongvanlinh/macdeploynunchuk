@@ -105,8 +105,8 @@ jobs:
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
           mv nunchuk-qt.app Nunchuk.app
+          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt
           # chmod +x ${{runner.workspace}}/macdeploynunchuk/macdeployqt
-          macdeployqt Nunchuk.app -qmldir=${{runner.workspace}}/nunchuk-qt -verbose=3
 
       - name: Codesign app bundle
         working-directory: ${{runner.workspace}}/build
