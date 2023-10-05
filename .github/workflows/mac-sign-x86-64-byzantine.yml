@@ -19,7 +19,7 @@ jobs:
         run: |
           brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm
           # workaround for Homebrew RPATH issue https://github.com/Homebrew/homebrew-core/issues/140930
-          brew update && brew reinstall qt@5 glib freetype
+          # brew update && brew reinstall qt@5 glib freetype
 
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
