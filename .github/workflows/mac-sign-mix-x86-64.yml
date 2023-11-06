@@ -15,6 +15,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Build HWI
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          brew install libusb python3 poetry pyenv
+          pyenv install 3.9.7
+          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
+          cd HWI-2.2.1
+          pip3 install poetry
+          poetry install
+          pip3 install .
+          pip3 install -U setuptools
+          bash contrib/build_bin.sh --without-gui
+          echo "find hwi"
+          find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+      
       - name: Install dependencies
         run: |
           brew unlink glib
@@ -41,22 +57,6 @@ jobs:
           cmake .. -DCMAKE_PREFIX_PATH=/usr/local/opt/qt@5/lib/cmake
           cmake --build .
           sudo cmake --install . --prefix "/usr/local"
-
-      - name: Build HWI
-        working-directory: ${{runner.workspace}}
-        shell: bash
-        run: |
-          brew install libusb python3 poetry pyenv
-          pyenv install 3.9.7
-          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
-          cd HWI-2.2.1
-          pip3 install poetry
-          poetry install
-          pip3 install .
-          pip3 install -U setuptools
-          bash contrib/build_bin.sh --without-gui
-          echo "find hwi"
-          find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
 
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
