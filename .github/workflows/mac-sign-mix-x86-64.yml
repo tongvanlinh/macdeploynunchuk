@@ -17,6 +17,16 @@ jobs:
 
       - name: Install dependencies
         run: |
+          brew unlink glib
+          cd /usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
+          git stash
+          git checkout 8264919fc5b75b989d8371f15508022f15921aaf
+          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          #brew install qt@5.rb
+          #brew install glib.rb
+          #brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 libevent sqlite sqlcipher libolm
+          
           brew install automake libtool pkg-config berkeley-db@4 openssl@1.1 boost@1.76 qt@5 libevent sqlite sqlcipher libolm
           # workaround for Homebrew RPATH issue https://github.com/Homebrew/homebrew-core/issues/140930
           # brew update && brew reinstall qt@5 glib freetype
