@@ -18,14 +18,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.9.7'
     
       - name: Build HWI
         working-directory: ${{runner.workspace}}
         shell: bash
         run: |
           brew install libusb poetry pyenv
-          #pyenv install 3.11.1
+          #pyenv install 3.9.7
           wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
           cd HWI-2.2.1
           pip3 install poetry
