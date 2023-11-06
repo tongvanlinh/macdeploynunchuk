@@ -21,6 +21,7 @@ jobs:
         run: |
           brew install libusb pyenv
           pyenv install 3.9.7
+          ln -s -f /Users/runner/.pyenv/versions/3.9.7 /usr/local/bin/python
           wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
           python3 --version
           cd HWI-2.2.1
