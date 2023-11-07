@@ -19,7 +19,7 @@ jobs:
         working-directory: ${{runner.workspace}}
         shell: bash
         run: |
-          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.3.1/hwi-2.3.1-mac-x86_64.tar.gz" -O - | tar -xz
+          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.3.1/hwi-2.3.1-mac-x86_64.tar.gz" -O - | tar -xz
           #mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           
           #brew install libusb pyenv
