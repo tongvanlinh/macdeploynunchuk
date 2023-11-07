@@ -15,29 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
     
-      #- name: Build HWI
-        #working-directory: ${{runner.workspace}}
-        #shell: bash
-        #run: |
-          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.3.1/hwi-2.3.1-mac-x86_64.tar.gz" -O - | tar -xz
-          #mv hwi nunchuk-qt.app/Contents/MacOS/hwi
-          
-          #brew install libusb pyenv
-          #pyenv install 3.9.7
-          #ln -s -f /Users/runner/.pyenv/versions/3.9.7 /usr/local/bin/python
-          #wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
-          #python3 --version
-          #cd HWI-2.2.1
-          #pip3 install poetry
-          #python3 --version
-          #poetry install
-          #python3 --version
-          #pip3 install .
-          #pip3 install -U setuptools
-          #python3 --version
-          #bash contrib/build_bin.sh --without-gui
-          #echo "find hwi"
-          #find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
+      - name: Build HWI
+        working-directory: ${{runner.workspace}}
+        shell: bash
+        run: |
+          brew install libusb pyenv pyenv-virtualenv
+          pyenv install 3.9.7
+          pyenv global 3.9.7
+          eval "$(pyenv init -)"
+          eval "$(pyenv init --path)"
+          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
+          cd HWI-2.2.1
+          pip3 install poetry
+          poetry install
+          pip3 install .
+          pip3 install -U setuptools
+          bash contrib/build_bin.sh --without-gui
+          echo "find hwi"
+          find ${{runner.workspace}} -name "hwi-2.2.1-mac-amd64.tar.gz"
       
       - name: Install dependencies
         run: |
@@ -117,9 +112,9 @@ jobs:
           export LDFLAGS="$LDFLAGS -L/usr/local/opt/qt@5/lib -L/usr/local/opt/boost@1.76/lib -L/usr/local/opt/berkeley-db@4/lib -L/usr/local/Cellar/sqlcipher/4.5.1/lib"
           export CPPFLAGS="$CPPFLAGS -I/usr/local/opt/qt@5/include -I/usr/local/opt/boost@1.76/include -I/usr/local/opt/berkeley-db@4/include -I/usr/local/Cellar/sqlcipher/4.5.1/include"
           export BOOST_ROOT="/usr/local/opt/boost@1.76"
-          #mv ${{runner.workspace}}/HWI-2.2.1/dist/hwi-2.2.1-mac-amd64.tar.gz .
-          #tar -xf hwi-2.2.1-mac-amd64.tar.gz
-          wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.3.1/hwi-2.3.1-mac-x86_64.tar.gz" -O - | tar -xz
+          mv ${{runner.workspace}}/HWI-2.2.1/dist/hwi-2.2.1-mac-amd64.tar.gz .
+          tar -xf hwi-2.2.1-mac-amd64.tar.gz
+          #wget -c -q "https://github.com/bitcoin-core/HWI/releases/download/2.3.1/hwi-2.3.1-mac-x86_64.tar.gz" -O - | tar -xz
           find ${{runner.workspace}} -name "hwi"
           mv hwi nunchuk-qt.app/Contents/MacOS/hwi
           mv nunchuk-qt.app/Contents/MacOS/nunchuk-qt nunchuk-qt.app/Contents/MacOS/Nunchuk
