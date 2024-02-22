@@ -24,7 +24,7 @@ jobs:
           pyenv global 3.9.7
           eval "$(pyenv init -)"
           eval "$(pyenv init --path)"
-          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.2.1.zip" -O - | tar -xz
+          wget -c -q "https://github.com/bitcoin-core/HWI/archive/refs/tags/2.4.0.zip" -O - | tar -xz
           cd HWI-2.2.1
           pip3 install poetry
           poetry install
