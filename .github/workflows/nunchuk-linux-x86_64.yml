@@ -1,426 +1,1712 @@
 name: nunchuk-linux-x86_64
+
 on:
   push:
     tags:
-    - '*'
+      - '*'
   workflow_dispatch:
-  
+    inputs:
+      nunchuk_ref:
+        description: Git ref của nunchuk-qt cần build (branch, tag hoặc commit)
+        required: true
+        default: dev
+        type: string
+      upload_appdir:
+        description: Upload AppDir để debug
+        required: false
+        default: false
+        type: boolean
+      require_unit_tests:
+        description: Fail nếu source không khai báo CTest test nào
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: nunchuk-linux-x86_64-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+env:
+  QT_VERSION: '5.15.2'
+  AQT_VERSION: '3.1.18'
+  COMPILER_MAJOR: '13'
+  QTKEYCHAIN_VERSION: '0.15.0'
+  QTKEYCHAIN_COMMIT: ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
+  OLM_VERSION: '3.2.16'
+  OLM_COMMIT: 7e0c8277032e40308987257b711b38af8d77cc69
+  OPENSSL_VERSION: '1.1.1w'
+  OPENSSL_SHA256: cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8
+  HWI_VERSION: '3.2.0-displayaddress'
+  HWI_SHA256: ee7cf2afe085128c55ebaa1fb1da45831ae82a02f5b8c462c1dc95e6e606220a
+  LOGO_COMMIT: d520358ece9f779191ba1adebbdc1d715928b2c0
+  LOGO_SHA256: 19142471406d87d87daa03c7d107cf2dc17f9f74cf9d6868a528ec96183a9b88
+  LINUXDEPLOY_VERSION: 1-alpha-20251107-1
+  LINUXDEPLOY_SHA256: c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d
+  LINUXDEPLOY_QT_VERSION: 1-alpha-20250213-1
+  LINUXDEPLOY_QT_SHA256: 15106be885c1c48a021198e7e1e9a48ce9d02a86dd0a1848f00bdbf3c1c92724
+  APPIMAGETOOL_VERSION: '1.9.1'
+  APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+  APPIMAGE_RUNTIME_VERSION: '20251108'
+  APPIMAGE_RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+  GLIBC_MAX: '2.31'
+
 jobs:
-  build:
+  lint:
+    name: Lint workflow
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        
-      - name: Download and extract HWI
+      - name: Checkout workflow repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run actionlint and ShellCheck
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          SHELLCHECK_VERSION: '0.11.0'
+          SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
         run: |
           set -euo pipefail
-      
-          #HWI_URL="https://github.com/giahuy98/HWI/releases/download/3.1.0-coldcard/hwi-3.1.0-linux-x86_64.tar.gz"
-          HWI_URL="https://github.com/nogibi/HWI/releases/download/3.2.0-displayaddress/hwi-3.2.0-linux-x86_64.tar.gz"
-          HWI_ARCHIVE="hwi.tar.gz"
-          TMPDIR="hwi-extracted"
-      
-          echo "Downloading HWI from $HWI_URL"
-          # prefer curl for better control; fall back to wget
-          if command -v curl >/dev/null 2>&1; then
-            curl -fL --retry 3 --retry-delay 3 -o "$HWI_ARCHIVE" "$HWI_URL"
-          else
-            wget -q --tries=3 -O "$HWI_ARCHIVE" "$HWI_URL"
-          fi
-      
-          echo "Downloaded file summary:"
-          ls -lh "$HWI_ARCHIVE" || true
-          echo "--- file(1) output ---"
-          file_out=$(file -b "$HWI_ARCHIVE" || true)
-          echo "$file_out"
-      
-          echo "--- first 64 bytes (hex) ---"
-          head -c 64 "$HWI_ARCHIVE" | hexdump -C || true
-      
-          mkdir -p "$TMPDIR"
-      
-          # choose extraction method based on file command
-          if echo "$file_out" | grep -qi gzip; then
-            echo "Detected gzip compressed archive -> tar -xzf"
-            tar -xzf "$HWI_ARCHIVE" -C "$TMPDIR"
-          elif echo "$file_out" | grep -qi 'XZ compressed'; then
-            echo "Detected xz compressed archive -> tar -xJf"
-            tar -xJf "$HWI_ARCHIVE" -C "$TMPDIR"
-          elif echo "$file_out" | grep -qi 'bzip2 compressed'; then
-            echo "Detected bzip2 compressed archive -> tar -xjf"
-            tar -xjf "$HWI_ARCHIVE" -C "$TMPDIR"
-          elif echo "$file_out" | grep -qi 'Zip archive'; then
-            echo "Detected zip archive -> unzip"
-            unzip -q "$HWI_ARCHIVE" -d "$TMPDIR"
-          elif echo "$file_out" | grep -qi 'tar archive' || hexdump -n 512 "$HWI_ARCHIVE" | grep -q 'ustar'; then
-            echo "Detected plain tar archive -> tar -xf"
-            tar -xf "$HWI_ARCHIVE" -C "$TMPDIR"
-          else
-            echo "ERROR: Unknown/unsupported archive type:"
-            echo "$file_out"
-            echo "Dumping first 200 bytes for debug (as text):"
-            head -c 200 "$HWI_ARCHIVE" | sed -n '1,80p' || true
+
+          TOOLS_DIR="$RUNNER_TEMP/workflow-lint"
+          mkdir -p "$TOOLS_DIR/actionlint" "$TOOLS_DIR/shellcheck"
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o "$TOOLS_DIR/actionlint.tar.gz" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  $TOOLS_DIR/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$TOOLS_DIR/actionlint.tar.gz" -C "$TOOLS_DIR/actionlint"
+
+          curl -fL --retry 3 --retry-delay 2 \
+            -o "$TOOLS_DIR/shellcheck.tar.xz" \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          echo "$SHELLCHECK_SHA256  $TOOLS_DIR/shellcheck.tar.xz" | sha256sum -c -
+          tar -xJf "$TOOLS_DIR/shellcheck.tar.xz" \
+            -C "$TOOLS_DIR/shellcheck" --strip-components=1
+
+          WORKFLOW_FILE=$(find "$GITHUB_WORKSPACE" \
+            -type f -name 'nunchuk-linux-x86_64.yml' -print -quit)
+          test -n "$WORKFLOW_FILE"
+
+          "$TOOLS_DIR/actionlint/actionlint" \
+            -color=false \
+            -shellcheck="$TOOLS_DIR/shellcheck/shellcheck" \
+            "$WORKFLOW_FILE"
+
+          awk '
+            /cat > .*nunchuk\.AppRun.*EOF/ { capture = 1; next }
+            capture && /^[[:space:]]*EOF$/ { exit }
+            capture { sub(/^          /, ""); print }
+          ' "$WORKFLOW_FILE" > "$TOOLS_DIR/nunchuk.AppRun"
+          test -s "$TOOLS_DIR/nunchuk.AppRun"
+          "$TOOLS_DIR/shellcheck/shellcheck" -s sh "$TOOLS_DIR/nunchuk.AppRun"
+          dash -n "$TOOLS_DIR/nunchuk.AppRun"
+
+  build:
+    name: Build AppImage (glibc 2.31 baseline)
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    container:
+      image: ubuntu:20.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      NUNCHUK_REF: ${{ github.event_name == 'push' && github.ref_name || inputs.nunchuk_ref }}
+      REQUIRE_UNIT_TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.require_unit_tests || false }}
+
+    steps:
+      - name: Install system dependencies and compiler
+        run: |
+          set -euo pipefail
+
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            curl \
+            software-properties-common
+
+          add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            ccache \
+            cmake \
+            dbus-x11 \
+            desktop-file-utils \
+            file \
+            "g++-${COMPILER_MAJOR}" \
+            "gcc-${COMPILER_MAJOR}" \
+            git \
+            libboost-all-dev \
+            libdb++-dev \
+            libevent-dev \
+            libgl1-mesa-dev \
+            libgl1-mesa-dri \
+            libglu1-mesa-dev \
+            libminizip-dev \
+            libpulse-dev \
+            libsecret-1-dev \
+            libsqlite3-dev \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            libx11-xcb1 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-sync1 \
+            libxcb-util1 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxcb-xkb1 \
+            libxkbcommon-x11-0 \
+            libzmq3-dev \
+            ninja-build \
+            patchelf \
+            pkg-config \
+            python3-pip \
+            sqlite3 \
+            xauth \
+            xz-utils \
+            xvfb \
+            zstd
+
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Configure toolchain
+        run: |
+          set -euo pipefail
+
+          CC_PATH=$(command -v "gcc-${COMPILER_MAJOR}")
+          CXX_PATH=$(command -v "g++-${COMPILER_MAJOR}")
+          AR_PATH=$(command -v "gcc-ar-${COMPILER_MAJOR}")
+          NM_PATH=$(command -v "gcc-nm-${COMPILER_MAJOR}")
+          RANLIB_PATH=$(command -v "gcc-ranlib-${COMPILER_MAJOR}")
+
+          for tool in "$CC_PATH" "$CXX_PATH" "$AR_PATH" "$NM_PATH" "$RANLIB_PATH"; do
+            test -x "$tool"
+          done
+
+          GCC_VERSION=$("$CC_PATH" -dumpfullversion -dumpversion)
+          {
+            echo "CC=$CC_PATH"
+            echo "CXX=$CXX_PATH"
+            echo "AR=$AR_PATH"
+            echo "NM=$NM_PATH"
+            echo "RANLIB=$RANLIB_PATH"
+            echo "GCC_VERSION=$GCC_VERSION"
+          } >> "$GITHUB_ENV"
+
+          "$CC_PATH" --version
+          "$CXX_PATH" --version
+
+      - name: Restore verified downloads
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/nunchuk-downloads
+          key: nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-
+            nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}
+
+      - name: Download and verify tools and assets
+        run: |
+          set -euo pipefail
+
+          DOWNLOAD_DIR="$HOME/.cache/nunchuk-downloads"
+          mkdir -p "$DOWNLOAD_DIR"
+          DOWNLOADS_CHANGED=0
+
+          download_verified() {
+            url="$1"
+            destination="$2"
+            expected_sha256="$3"
+
+            if [ -f "$destination" ] && \
+               ! echo "$expected_sha256  $destination" | sha256sum -c -; then
+              rm -f "$destination"
+              DOWNLOADS_CHANGED=1
+            fi
+
+            if [ ! -f "$destination" ]; then
+              temporary_file="${destination}.tmp"
+              rm -f "$temporary_file"
+              curl -fL --retry 3 --retry-delay 2 \
+                -o "$temporary_file" "$url"
+              mv "$temporary_file" "$destination"
+              DOWNLOADS_CHANGED=1
+            fi
+
+            echo "$expected_sha256  $destination" | sha256sum -c -
+          }
+
+          download_verified \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-x86_64.AppImage" \
+            "$DOWNLOAD_DIR/linuxdeploy" \
+            "$LINUXDEPLOY_SHA256"
+
+          download_verified \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/${LINUXDEPLOY_QT_VERSION}/linuxdeploy-plugin-qt-x86_64.AppImage" \
+            "$DOWNLOAD_DIR/linuxdeploy-plugin-qt" \
+            "$LINUXDEPLOY_QT_SHA256"
+
+          download_verified \
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage" \
+            "$DOWNLOAD_DIR/appimagetool" \
+            "$APPIMAGETOOL_SHA256"
+
+          download_verified \
+            "https://github.com/AppImage/type2-runtime/releases/download/${APPIMAGE_RUNTIME_VERSION}/runtime-x86_64" \
+            "$DOWNLOAD_DIR/runtime-x86_64" \
+            "$APPIMAGE_RUNTIME_SHA256"
+
+          download_verified \
+            "https://github.com/nogibi/HWI/releases/download/${HWI_VERSION}/hwi-3.2.0-linux-x86_64.tar.gz" \
+            "$DOWNLOAD_DIR/hwi.tar.gz" \
+            "$HWI_SHA256"
+
+          download_verified \
+            "https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-${OPENSSL_VERSION}.tar.gz" \
+            "$DOWNLOAD_DIR/openssl.tar.gz" \
+            "$OPENSSL_SHA256"
+
+          download_verified \
+            "https://raw.githubusercontent.com/hadvluffy/macdeploynunchuk/${LOGO_COMMIT}/nunchuk-qt.png" \
+            "$DOWNLOAD_DIR/nunchuk-qt.png" \
+            "$LOGO_SHA256"
+
+          chmod 755 \
+            "$DOWNLOAD_DIR/linuxdeploy" \
+            "$DOWNLOAD_DIR/linuxdeploy-plugin-qt" \
+            "$DOWNLOAD_DIR/appimagetool" \
+            "$DOWNLOAD_DIR/runtime-x86_64"
+
+          file \
+            "$DOWNLOAD_DIR/linuxdeploy" \
+            "$DOWNLOAD_DIR/linuxdeploy-plugin-qt" \
+            "$DOWNLOAD_DIR/appimagetool" \
+            "$DOWNLOAD_DIR/runtime-x86_64" \
+            "$DOWNLOAD_DIR/nunchuk-qt.png"
+
+          runtime_program_headers=$(readelf -lW \
+            "$DOWNLOAD_DIR/runtime-x86_64")
+          runtime_dynamic_section=$(readelf -dW \
+            "$DOWNLOAD_DIR/runtime-x86_64")
+          if grep -F 'INTERP' <<< "$runtime_program_headers" > /dev/null || \
+             grep -F '(NEEDED)' <<< "$runtime_dynamic_section" > /dev/null; then
+            echo 'ERROR: AppImage runtime không phải static PIE độc lập.'
             exit 1
           fi
-      
-          echo "Listing extracted files:"
-          find "$TMPDIR" -maxdepth 3 -type f -ls || true
 
-      - name: Download logo
-        working-directory: ${{runner.workspace}}
-        run: |
-          curl -L -o nunchuk-qt.png https://raw.githubusercontent.com/hadvluffy/macdeploynunchuk/main/nunchuk-qt.png
-          ls -l
-                    
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt upgrade
-          sudo apt install -y cmake \
-                              g++ \
-                              make \
-                              ninja-build \
-                              libboost-all-dev \
-                              libzmq3-dev \
-                              libevent-dev \
-                              libdb++-dev \
-                              sqlite3 \
-                              libsqlite3-dev \
-                              libsecret-1-dev \
-                              git \
-                              dpkg-dev \
-                              python3-pip \
-                              fuse \
-                              libgl-dev \
-                              libglu-dev \
-                              mesa-common-dev \
-                              libpulse-dev \
-                              libxcb-xinerama0
-      
-      - name: Install aqtinstall
-        run: |
-          pip install aqtinstall
-          
-      - name: Install Qt 5.15.2
-        run: |
-          aqt list-qt linux desktop
-          QT_VERSION=5.15.2
-          QT_INSTALL_DIR=$HOME/Qt
-          echo "aqt list-qt linux desktop --modules 5.15.2 gcc_64"
-          aqt list-qt linux desktop --modules 5.15.2 gcc_64
-          aqt install-qt linux desktop $QT_VERSION gcc_64 --outputdir "$QT_INSTALL_DIR"
-          aqt install-qt linux desktop $QT_VERSION gcc_64 --outputdir "$QT_INSTALL_DIR" \
-                                                          --modules qtcharts \
-                                                                    qtdatavis3d \
-                                                                    qtlottie \
-                                                                    qtnetworkauth \
-                                                                    qtpurchasing \
-                                                                    qtquick3d \
-                                                                    qtquicktimeline \
-                                                                    qtscript \
-                                                                    qtvirtualkeyboard \
-                                                                    qtwaylandcompositor \
-                                                                    qtwebengine \
-                                                                    qtwebglplugin \
-                                                                    debug_info            
-                                                                    
-          echo "ls $QT_INSTALL_DIR/5.15.2/gcc_64/lib/cmake/"
-          ls $QT_INSTALL_DIR/5.15.2/gcc_64/lib/cmake/
-          
-          echo "Exporting Qt5_DIR for CMake..."
-          echo "QT5_DIR=$QT_INSTALL_DIR/$QT_VERSION/gcc_64/lib/cmake/Qt5" >> $GITHUB_ENV
-          echo "QT_INSTALLED_PREFIX=$QT_INSTALL_DIR/$QT_VERSION/gcc_64" >> $GITHUB_ENV
+          echo "SAVE_DOWNLOAD_CACHE=$DOWNLOADS_CHANGED" >> "$GITHUB_ENV"
 
-      - name: Checkout, Build & Install qtkeychain
-        working-directory: ${{ runner.workspace }}
-        run: |
-          #git clone https://github.com/frankosterfeld/qtkeychain.git
-          git clone --depth 1 --branch 0.15.0 https://github.com/frankosterfeld/qtkeychain
-          cd qtkeychain
-          echo "Latest commit ----->>>>> $(git rev-parse HEAD)"
-          echo "Qt5 DIR ----->>>>> ${{ env.QT5_DIR }}"
-          rm -rf build
-          mkdir build && cd build
-          cmake .. \
-                -DBUILD_WITH_QT5=ON \
-                -DCMAKE_INSTALL_PREFIX=/usr/local \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DQt5_DIR=${{ env.QT5_DIR }}
-                
-          make -j$(nproc)
-          sudo make install
-          sudo ldconfig
-            
-      - name: Checkout, Build & Install Olm
-        working-directory: ${{ runner.workspace }}
-        run: |
-          git clone https://gitlab.matrix.org/matrix-org/olm.git
-          cd olm
-          git checkout 3.2.16
-          cmake --version
-          echo "Latest commit ----->>>>> $(git rev-parse HEAD)"
-          
-          rm -rf build
-          mkdir build && cd build
-          cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-          make -j$(nproc)
-          sudo make install
-          sudo ldconfig
-          
-      - name: Install cqtdeployer tools
-        working-directory: ${{runner.workspace}}
-        run: |
-          wget https://github.com/QuasarApp/CQtDeployer/releases/download/v1.6.2365/CQtDeployer_1.6.2365.7cce7f3_Linux_x86_64.deb
-          sudo dpkg -i CQtDeployer_1.6.2365.7cce7f3_Linux_x86_64.deb
-          cqtdeployer v
-          
-      - name: Install GCC 14
-        run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt update
-          sudo apt install -y gcc-14 g++-14
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
-          
-      - name: Set environment variables
-        run: |
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
-          echo "RANLIB=gcc-ranlib-14" >> $GITHUB_ENV
-          echo "AR=gcc-ar-14" >> $GITHUB_ENV
-          echo "NM=gcc-nm-14" >> $GITHUB_ENV
-          
-      - name: Verify GCC version
-        run: gcc --version
-      
-      - name: Verify G++ version
-        run: g++ --version
-
-      - name: Install OpenSSL 1.1.1g
-        working-directory: ${{ runner.workspace }}
-        run: |
-          wget https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1g/openssl-1.1.1g.tar.gz
-          tar xzf openssl-1.1.1g.tar.gz
-          cd openssl-1.1.1g
-          ./config --prefix="$PWD/lib"
-          make -j$(nproc)
-          make install_dev
-          
-      - name: Cache nunchuk-qt source
-        uses: actions/cache@v4
+      - name: Save repaired downloads
+        if: env.SAVE_DOWNLOAD_CACHE == '1'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: ${{ runner.workspace }}/nunchuk-qt
-          key: nunchuk-qt-${{ runner.os }}
-          restore-keys: nunchuk-qt-${{ runner.os }}
+          path: ~/.cache/nunchuk-downloads
+          key: nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Checkout nunchuk-qt
-        working-directory: ${{runner.workspace}}
+      - name: Restore Qt 5.15.2
+        id: cache-qt
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/Qt/5.15.2/gcc_64
+          key: qt-linux-x86_64-5.15.2-runtime-modules-v4-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            qt-linux-x86_64-5.15.2-runtime-modules-v4-repaired-
+            qt-linux-x86_64-5.15.2-runtime-modules-v4
+
+      - name: Install and verify Qt 5.15.2
+        run: |
+          set -euo pipefail
+
+          QT_ROOT="$HOME/Qt/$QT_VERSION/gcc_64"
+          QT_STAMP="$QT_ROOT/.nunchuk-cache-stamp"
+          EXPECTED_QT_STAMP="qt=$QT_VERSION;aqt=$AQT_VERSION;modules=charts,datavis3d,lottie,networkauth,purchasing,quick3d,quicktimeline,script,virtualkeyboard,waylandcompositor,webengine,webglplugin"
+          QT_CACHE_VALID=1
+
+          [ -x "$QT_ROOT/bin/qmake" ] || QT_CACHE_VALID=0
+          [ -f "$QT_ROOT/lib/libQt5Core.so.5" ] || QT_CACHE_VALID=0
+          [ -f "$QT_ROOT/lib/libQt5WebEngineCore.so.5" ] || QT_CACHE_VALID=0
+          [ -f "$QT_ROOT/lib/libQt5WebEngineWidgets.so.5" ] || QT_CACHE_VALID=0
+          [ -x "$QT_ROOT/libexec/QtWebEngineProcess" ] || QT_CACHE_VALID=0
+          [ -f "$QT_ROOT/resources/icudtl.dat" ] || QT_CACHE_VALID=0
+          [ -d "$QT_ROOT/qml/QtWebEngine" ] || QT_CACHE_VALID=0
+          [ -f "$QT_STAMP" ] || QT_CACHE_VALID=0
+          if [ -f "$QT_STAMP" ] && \
+             [ "$(cat "$QT_STAMP")" != "$EXPECTED_QT_STAMP" ]; then
+            QT_CACHE_VALID=0
+          fi
+          if [ -x "$QT_ROOT/bin/qmake" ] && \
+             [ "$("$QT_ROOT/bin/qmake" -query QT_VERSION)" != "$QT_VERSION" ]; then
+            QT_CACHE_VALID=0
+          fi
+
+          if [ "$QT_CACHE_VALID" -ne 1 ]; then
+            rm -rf "$QT_ROOT"
+            python3 -m pip install \
+              --disable-pip-version-check \
+              --no-warn-script-location \
+              --user "aqtinstall==$AQT_VERSION"
+            export PATH="$HOME/.local/bin:$PATH"
+
+            aqt install-qt \
+              linux desktop "$QT_VERSION" gcc_64 \
+              --outputdir "$HOME/Qt" \
+              -m qtcharts \
+                 qtdatavis3d \
+                 qtlottie \
+                 qtnetworkauth \
+                 qtpurchasing \
+                 qtquick3d \
+                 qtquicktimeline \
+                 qtscript \
+                 qtvirtualkeyboard \
+                 qtwaylandcompositor \
+                 qtwebengine \
+                 qtwebglplugin
+            printf '%s\n' "$EXPECTED_QT_STAMP" > "$QT_STAMP"
+            echo 'SAVE_QT_CACHE=1' >> "$GITHUB_ENV"
+          else
+            echo 'SAVE_QT_CACHE=0' >> "$GITHUB_ENV"
+          fi
+
+          test -x "$QT_ROOT/bin/qmake"
+          test -f "$QT_ROOT/lib/libQt5Core.so.5"
+          test -f "$QT_ROOT/lib/libQt5WebEngineCore.so.5"
+          test -f "$QT_ROOT/lib/libQt5WebEngineWidgets.so.5"
+          test -x "$QT_ROOT/libexec/QtWebEngineProcess"
+          test -f "$QT_ROOT/resources/icudtl.dat"
+          test -d "$QT_ROOT/qml/QtWebEngine"
+
+          QT_QMAKE_VERSION=$(
+            "$QT_ROOT/bin/qmake" -query QT_VERSION
+          )
+          test "$QT_QMAKE_VERSION" = "$QT_VERSION"
+          file "$QT_ROOT/lib/libQt5Core.so.5"
+          "$QT_ROOT/bin/qmake" -query
+
+          {
+            echo "QTPATH=$QT_ROOT"
+            echo "Qt5_DIR=$QT_ROOT/lib/cmake/Qt5"
+          } >> "$GITHUB_ENV"
+
+      - name: Save repaired Qt cache
+        if: env.SAVE_QT_CACHE == '1'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/Qt/5.15.2/gcc_64
+          key: qt-linux-x86_64-5.15.2-runtime-modules-v4-repaired-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Restore compiled dependencies
+        id: cache-dependencies
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.local/nunchuk-deps
+          key: nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-repaired-
+            nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4
+
+      - name: Build and verify cached dependencies
+        run: |
+          set -euo pipefail
+
+          DEPS_ROOT="$HOME/.local/nunchuk-deps"
+          QTKEYCHAIN_PREFIX="$DEPS_ROOT/qtkeychain"
+          OLM_PREFIX="$DEPS_ROOT/olm"
+          OPENSSL_PREFIX="$DEPS_ROOT/openssl"
+          EXPECTED_STAMP="gcc=$GCC_VERSION;qt=$QT_VERSION;qtkeychain=$QTKEYCHAIN_COMMIT;olm=$OLM_COMMIT;openssl=$OPENSSL_VERSION;shared=1"
+
+          dependencies_are_valid() {
+            local cached_crypto cached_library cached_olm cached_qtkeychain cached_ssl
+            [ -f "$DEPS_ROOT/.stamp" ] || return 1
+            [ "$(cat "$DEPS_ROOT/.stamp")" = "$EXPECTED_STAMP" ] || return 1
+            cached_qtkeychain=$(find "$QTKEYCHAIN_PREFIX" \
+              -type f -name 'libqt5keychain.so.*' -print -quit 2>/dev/null || true)
+            cached_olm=$(find "$OLM_PREFIX" \
+              -type f -name 'libolm.so.*' -print -quit 2>/dev/null || true)
+            cached_ssl=$(find "$OPENSSL_PREFIX" \
+              -type f -name 'libssl.so.1.1' -print -quit 2>/dev/null || true)
+            cached_crypto=$(find "$OPENSSL_PREFIX" \
+              -type f -name 'libcrypto.so.1.1' -print -quit 2>/dev/null || true)
+
+            for cached_library in \
+              "$cached_qtkeychain" "$cached_olm" "$cached_ssl" "$cached_crypto"; do
+              [ -f "$cached_library" ] || return 1
+              file -b "$cached_library" | grep -Eq 'ELF 64-bit.*x86-64' || return 1
+            done
+          }
+
+          if ! dependencies_are_valid; then
+            rm -rf "$DEPS_ROOT"
+            mkdir -p "$DEPS_ROOT"
+
+            SOURCE_ROOT="$RUNNER_TEMP/nunchuk-dependency-sources"
+            rm -rf "$SOURCE_ROOT"
+            mkdir -p "$SOURCE_ROOT"
+
+            git clone --depth 1 --branch "$QTKEYCHAIN_VERSION" \
+              https://github.com/frankosterfeld/qtkeychain.git \
+              "$SOURCE_ROOT/qtkeychain"
+            test "$(git -C "$SOURCE_ROOT/qtkeychain" rev-parse HEAD)" = \
+              "$QTKEYCHAIN_COMMIT"
+            cmake \
+              -S "$SOURCE_ROOT/qtkeychain" \
+              -B "$SOURCE_ROOT/qtkeychain-build" \
+              -G Ninja \
+              -DBUILD_WITH_QT5=ON \
+              -DBUILD_TEST_APPLICATION=OFF \
+              -DBUILD_TRANSLATIONS=OFF \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_PREFIX_PATH="$QTPATH" \
+              -DCMAKE_INSTALL_PREFIX="$QTKEYCHAIN_PREFIX" \
+              -DQt5_DIR="$Qt5_DIR"
+            cmake --build "$SOURCE_ROOT/qtkeychain-build" \
+              --parallel "$(nproc)"
+            cmake --install "$SOURCE_ROOT/qtkeychain-build"
+
+            git clone --depth 1 --branch "$OLM_VERSION" \
+              https://gitlab.matrix.org/matrix-org/olm.git \
+              "$SOURCE_ROOT/olm"
+            test "$(git -C "$SOURCE_ROOT/olm" rev-parse HEAD)" = "$OLM_COMMIT"
+            cmake \
+              -S "$SOURCE_ROOT/olm" \
+              -B "$SOURCE_ROOT/olm-build" \
+              -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_INSTALL_PREFIX="$OLM_PREFIX"
+            cmake --build "$SOURCE_ROOT/olm-build" \
+              --parallel "$(nproc)"
+            cmake --install "$SOURCE_ROOT/olm-build"
+
+            mkdir -p "$SOURCE_ROOT/openssl"
+            tar -xzf "$HOME/.cache/nunchuk-downloads/openssl.tar.gz" \
+              -C "$SOURCE_ROOT/openssl" --strip-components=1
+            (
+              cd "$SOURCE_ROOT/openssl"
+              CC="$CC" ./config \
+                shared \
+                no-tests \
+                --prefix="$OPENSSL_PREFIX" \
+                --openssldir="$OPENSSL_PREFIX/ssl"
+              make -j"$(nproc)"
+              make install_dev
+            )
+
+            printf '%s\n' "$EXPECTED_STAMP" > "$DEPS_ROOT/.stamp"
+            echo 'SAVE_DEPENDENCY_CACHE=1' >> "$GITHUB_ENV"
+          else
+            echo 'SAVE_DEPENDENCY_CACHE=0' >> "$GITHUB_ENV"
+          fi
+
+          QTKEYCHAIN_LIBRARY=$(find "$QTKEYCHAIN_PREFIX" \
+            -type f -name 'libqt5keychain.so.*' -print -quit)
+          OLM_LIBRARY=$(find "$OLM_PREFIX" \
+            -type f -name 'libolm.so.*' -print -quit)
+          OPENSSL_LIBRARY=$(find "$OPENSSL_PREFIX" \
+            -type f -name 'libssl.so.1.1' -print -quit)
+          OPENSSL_CRYPTO_LIBRARY=$(find "$OPENSSL_PREFIX" \
+            -type f -name 'libcrypto.so.1.1' -print -quit)
+
+          for library in \
+            "$QTKEYCHAIN_LIBRARY" \
+            "$OLM_LIBRARY" \
+            "$OPENSSL_LIBRARY" \
+            "$OPENSSL_CRYPTO_LIBRARY"; do
+            test -f "$library"
+            file "$library" | grep -E 'ELF 64-bit.*x86-64'
+          done
+
+          mapfile -t DEPENDENCY_LIBRARY_DIRS < <(
+            find "$DEPS_ROOT" -type d \
+              \( -name lib -o -name lib64 -o -name x86_64-linux-gnu \) \
+              -print | sort -u
+          )
+          test "${#DEPENDENCY_LIBRARY_DIRS[@]}" -gt 0
+          DEPS_LIBRARY_PATH=$(IFS=:; echo "${DEPENDENCY_LIBRARY_DIRS[*]}")
+
+          {
+            echo "DEPS_ROOT=$DEPS_ROOT"
+            echo "QTKEYCHAIN_PREFIX=$QTKEYCHAIN_PREFIX"
+            echo "OLM_PREFIX=$OLM_PREFIX"
+            echo "OPENSSL_ROOT_DIR=$OPENSSL_PREFIX"
+            echo "QTKEYCHAIN_LIBRARY=$QTKEYCHAIN_LIBRARY"
+            echo "OLM_LIBRARY=$OLM_LIBRARY"
+            echo "OPENSSL_LIBRARY=$OPENSSL_LIBRARY"
+            echo "OPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY"
+            echo "DEPS_LIBRARY_PATH=$DEPS_LIBRARY_PATH"
+          } >> "$GITHUB_ENV"
+
+      - name: Save repaired dependency cache
+        if: env.SAVE_DEPENDENCY_CACHE == '1'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.local/nunchuk-deps
+          key: nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-repaired-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Restore compiler cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/ccache
+          key: ccache-nunchuk-qt5-focal-gcc-${{ env.GCC_VERSION }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-nunchuk-qt5-focal-gcc-${{ env.GCC_VERSION }}-${{ github.ref_name }}-
+            ccache-nunchuk-qt5-focal-gcc-${{ env.GCC_VERSION }}-
+
+      - name: Checkout exact nunchuk-qt ref
         env:
           GITLAB_PASS: ${{ secrets.GITLAB_PASS }}
         run: |
-          echo -e "machine gitlab.com\n  login hadvluffy\n  password $GITLAB_PASS" >~/.netrc
-          TARGET_BRANCH="dev"
-          echo "BUILD_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
-          echo "Cloning fresh repository"
-          rm -rf nunchuk-qt
-          git clone -b $TARGET_BRANCH https://gitlab.com/nunchuck/nunchuck-qt nunchuk-qt
-          cd nunchuk-qt
-          git fetch --all --tags --force
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          echo "Latest commit ----->>>>> $(git rev-parse HEAD)"
-          echo "LAST_COMMITID=$(git rev-parse HEAD)" >> $GITHUB_ENV
-          # Get the latest tag based on the time it was tagged (taggerdate)
-          LATEST_TAG=$(git for-each-ref --sort=-taggerdate --format '%(refname:short)' refs/tags | head -n 1)
-          CURRENT_COMMIT=$(git rev-parse HEAD)
-          TAGGED_COMMIT=$(git rev-list -n 1 $LATEST_TAG)
-          echo "Latest tag found: $LATEST_TAG (commit $TAGGED_COMMIT)"
-          echo "Current commit: $CURRENT_COMMIT"
-          echo "LATEST_VERSION=$LATEST_TAG" >> $GITHUB_ENV
+          set -euo pipefail
+          test -n "$NUNCHUK_REF"
+          test -n "$GITLAB_PASS"
 
-      - name: Generate build timestamp
-        run: |
-          TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          echo "Timestamp: $TIMESTAMP"
-          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          NETRC_FILE="$HOME/.netrc"
+          cleanup_credentials() {
+            rm -f "$NETRC_FILE"
+          }
+          trap cleanup_credentials EXIT
 
-      - name: Check environment variants
-        id: set-timestamp
-        run: |
-          echo "Timestamp build :>>> ${{ env.TIMESTAMP }}"
-          echo "Version target build :>>> ${{ env.LATEST_VERSION }}"
-          echo "Commit target build :>>> ${{ env.LAST_COMMITID }}"
-          echo "Branch target build :>>> ${{ env.BUILD_BRANCH }}"
-                    
+          printf 'machine gitlab.com\n  login hadvluffy\n  password %s\n' \
+            "$GITLAB_PASS" > "$NETRC_FILE"
+          chmod 600 "$NETRC_FILE"
+
+          SOURCE_DIR="$GITHUB_WORKSPACE/nunchuk-qt"
+          rm -rf "$SOURCE_DIR"
+          git init "$SOURCE_DIR"
+          git -C "$SOURCE_DIR" remote add origin \
+            https://gitlab.com/nunchuck/nunchuck-qt
+          FETCH_REF="$NUNCHUK_REF"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            FETCH_REF="refs/tags/$NUNCHUK_REF"
+          fi
+          git -C "$SOURCE_DIR" fetch --depth 1 origin "$FETCH_REF"
+          git -C "$SOURCE_DIR" checkout --detach FETCH_HEAD
+          git -C "$SOURCE_DIR" submodule sync --recursive
+          git -C "$SOURCE_DIR" \
+            -c submodule.fetchJobs="$(nproc)" \
+            submodule update --init --recursive --depth 1
+
+          SOURCE_COMMIT=$(git -C "$SOURCE_DIR" rev-parse HEAD)
+          SOURCE_SHORT_COMMIT=$(git -C "$SOURCE_DIR" rev-parse --short=12 HEAD)
+          SOURCE_DATE_EPOCH=$(git -C "$SOURCE_DIR" show -s --format=%ct HEAD)
+          SAFE_REF=$(printf '%s' "$NUNCHUK_REF" | \
+            sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')
+          test -n "$SAFE_REF"
+
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            BUILD_VERSION="${SAFE_REF#v}"
+          else
+            BUILD_VERSION="${SAFE_REF}-${SOURCE_SHORT_COMMIT}"
+          fi
+
+          BUILD_TIMESTAMP=$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y%m%d%H%M%S)
+          ARTIFACT_BASENAME="nunchuk-linux-x86_64-v${BUILD_VERSION}"
+          {
+            echo "SOURCE_DIR=$SOURCE_DIR"
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "SOURCE_SHORT_COMMIT=$SOURCE_SHORT_COMMIT"
+            echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+            echo "BUILD_VERSION=$BUILD_VERSION"
+            echo "BUILD_TIMESTAMP=$BUILD_TIMESTAMP"
+            echo "ARTIFACT_BASENAME=$ARTIFACT_BASENAME"
+          } >> "$GITHUB_ENV"
+
+          echo "Source ref: $NUNCHUK_REF"
+          echo "Source commit: $SOURCE_COMMIT"
+          echo "Build version: $BUILD_VERSION"
+
       - name: Configure and build nunchuk-qt
-        working-directory: ${{ runner.workspace }}/nunchuk-qt
         env:
-          OPENSSL_ROOT_DIR: ${{ runner.workspace }}/openssl-1.1.1g/lib
           OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_CLIENT_SECRET }}
           OAUTH_REDIRECT_URI: ${{ secrets.OAUTH_REDIRECT_URI }}
           OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
         run: |
-          mkdir -p build
-          cd build
-      
-          # Load environment variables
-          source ~/.bashrc
-      
-          # Set compiler and linker flags
-          export LDFLAGS="$LDFLAGS -L$OPENSSL_ROOT_DIR/lib -lssl -lcrypto"
-          export LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
-          export CPPFLAGS="$CPPFLAGS -I$OPENSSL_ROOT_DIR/include"
-          export CXXFLAGS="$CXXFLAGS -O0 $CPPFLAGS"
-          export CFLAGS="$CFLAGS -O0 $CPPFLAGS"
-          echo "Using CXX flags: $CXXFLAGS"
-          echo "Using Linker flags: $LDFLAGS"
-          
-          echo "OAUTH_CLIENT_SECRET >>>>> $OAUTH_CLIENT_SECRET"
-          echo "OAUTH_REDIRECT_URI  >>>>> $OAUTH_REDIRECT_URI"
-          echo "OAUTH_CLIENT_ID     >>>>> $OAUTH_CLIENT_ID"
-      
-          # Run CMake configuration
-          cmake .. \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DUR__DISABLE_TESTS=ON \
-                -DRANDLIB=$(which gcc-randlib-14) \
-                -DAR=$(which gcc-ar-14) \
-                -DNM=$(which gcc-nm-14) \
-                -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-                -DCMAKE_C_FLAGS_RELEASE="$CFLAGS" \
-                -DCMAKE_CXX_FLAGS_RELEASE="$CXXFLAGS" \
-                -DCMAKE_PREFIX_PATH="$OPENSSL_ROOT_DIR;${{ env.QT_INSTALLED_PREFIX }}" \
-                -DQt5_DIR=${{ env.QT5_DIR }}
-          make -j$(nproc)
-          
-      - name: Deploy nunchuk-qt
-        working-directory: ${{ runner.workspace }}
-        env:
-          NUNCHUK_LOGO: ${{runner.workspace}}/nunchuk-qt.png
-        run: |
-          OUTPUT_DIR="nunchuk-linux-v${{ env.LATEST_VERSION }}/Appdir"
-          EXECUTION_PATH="${{ runner.workspace }}/nunchuk-qt/build/nunchuk-qt"
-          mkdir -p $OUTPUT_DIR
-          
-          cqtdeployer -bin $EXECUTION_PATH \
-                      -qmake "${{ env.QT_INSTALLED_PREFIX }}/bin/qmake" \
-                      -qmlDir ${{ runner.workspace }}/nunchuk-qt \
-                      -targetDir $OUTPUT_DIR \
-                      -icon $NUNCHUK_LOGO \
-                      noTranslation \
-                      noStrip
-      
-      - name: Collect other dependences
-        working-directory: ${{ runner.workspace }}
-        run: |
-          OUTPUT_DIR="nunchuk-linux-v${{ env.LATEST_VERSION }}/Appdir"
-          EXECUTION_PATH=$OUTPUT_DIR/bin/nunchuk-qt
-          
-          # Copy libraries (except Qt)
-          ldd $OUTPUT_DIR/bin/nunchuk-qt | awk '{print $3}' | grep -v '^(' | while read lib; do
-              # If lib in /usr/lib or /lib => skip
-              if [[ "$lib" == /usr/lib/* || "$lib" == /lib/* ]]; then
-                  echo "⏩ Skipping system lib: $base ($lib)"
-                  continue
-              fi
-          
-              if [[ "$lib" != *"/libQt"* && "$lib" != *"/Qt"* ]]; then
-                  if [ -f "$lib" ]; then
-                      echo "📌 Copying $(basename "$lib") from $lib to $OUTPUT_DIR/lib/"
-                      cp -L "$lib" "$OUTPUT_DIR/lib/"
-                      chmod 775 "$OUTPUT_DIR/lib/$(basename "$lib")"
-                  fi
-              fi
-          done
+          set -euo pipefail
 
-          OPENSSL_LIB_DIR="${{ runner.workspace }}/openssl-1.1.1g/lib/lib"
-          ls -l "$OPENSSL_LIB_DIR"
-          
-          for lib_ssl in "$OPENSSL_LIB_DIR"/libssl.so* "$OPENSSL_LIB_DIR"/libcrypto.so*; do
-            if [ -f "$lib_ssl" ]; then
-                echo "📌 Copying $(basename "$lib_ssl") from $lib_ssl to $OUTPUT_DIR/lib/"
-                cp -L "$lib_ssl" "$OUTPUT_DIR/lib/"
-                chmod 775 "$OUTPUT_DIR/lib/$(basename "$lib_ssl")"
+          BUILD_DIR="$GITHUB_WORKSPACE/build"
+          rm -rf "$BUILD_DIR"
+
+          ccache --set-config="cache_dir=$HOME/.cache/ccache"
+          ccache --max-size=2G
+          ccache --zero-stats
+
+          export LD_LIBRARY_PATH="$DEPS_LIBRARY_PATH:$QTPATH/lib"
+          export PKG_CONFIG_PATH="$OPENSSL_ROOT_DIR/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
+          cmake \
+            -S "$SOURCE_DIR" \
+            -B "$BUILD_DIR" \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_AR="$AR" \
+            -DCMAKE_NM="$NM" \
+            -DCMAKE_RANLIB="$RANLIB" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_PREFIX_PATH="$QTPATH;$QTKEYCHAIN_PREFIX;$OLM_PREFIX" \
+            -DQt5_DIR="$Qt5_DIR" \
+            -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
+            -DOPENSSL_USE_STATIC_LIBS=FALSE \
+            -DUR__DISABLE_TESTS=ON
+
+          verify_cmake_tool() {
+            cache_key="$1"
+            expected_path="$2"
+            configured_path=$(sed -n \
+              "s/^${cache_key}:[^=]*=//p" "$BUILD_DIR/CMakeCache.txt")
+            test -n "$configured_path"
+            test "$(readlink -f "$configured_path")" = \
+              "$(readlink -f "$expected_path")"
+          }
+
+          verify_cmake_tool CMAKE_C_COMPILER "$CC"
+          verify_cmake_tool CMAKE_CXX_COMPILER "$CXX"
+          verify_cmake_tool CMAKE_AR "$AR"
+          verify_cmake_tool CMAKE_NM "$NM"
+          verify_cmake_tool CMAKE_RANLIB "$RANLIB"
+
+          if grep -Eq '^CMAKE_(C|CXX)_FLAGS_RELEASE:[^=]*=(-O0|.*[[:space:]]-O0)([[:space:]]|$)' \
+            "$BUILD_DIR/CMakeCache.txt"; then
+            echo 'ERROR: Release build đang chứa -O0.'
+            exit 1
+          fi
+          test -f "$BUILD_DIR/compile_commands.json"
+          if grep -Eq '(^|[[:space:]"])-O0([[:space:]"]|$)' \
+            "$BUILD_DIR/compile_commands.json"; then
+            echo 'ERROR: Compile command thực tế đang chứa -O0.'
+            exit 1
+          fi
+
+          cmake --build "$BUILD_DIR" --parallel "$(nproc)"
+          mkdir -p "$GITHUB_WORKSPACE/reports"
+
+          CTEST_DISCOVERY=$(cd "$BUILD_DIR" && ctest -N)
+          printf '%s\n' "$CTEST_DISCOVERY" | \
+            tee "$GITHUB_WORKSPACE/reports/ctest-discovery.log"
+          CTEST_COUNT=$(sed -n \
+            's/^[[:space:]]*Total Tests: \([0-9][0-9]*\)[[:space:]]*$/\1/p' \
+            <<< "$CTEST_DISCOVERY" | tail -n 1)
+          case "$CTEST_COUNT" in
+            ''|*[!0-9]*)
+              echo 'ERROR: Không đọc được số lượng CTest tests.'
+              exit 1
+              ;;
+          esac
+
+          if [ "$CTEST_COUNT" -gt 0 ]; then
+            (
+              cd "$BUILD_DIR"
+              ctest --output-on-failure --parallel "$(nproc)"
+            ) | tee "$GITHUB_WORKSPACE/reports/ctest.log"
+          else
+            echo 'SKIPPED: source không khai báo CTest test nào.' | \
+              tee "$GITHUB_WORKSPACE/reports/ctest.log"
+            if [ "$REQUIRE_UNIT_TESTS" = true ]; then
+              echo 'ERROR: require_unit_tests đang bật nhưng CTest có 0 test.'
+              exit 1
             fi
-          done
-      
-          patchelf --set-rpath '$ORIGIN/../lib' $OUTPUT_DIR/bin/nunchuk-qt
-          echo "RPATH set to: $(patchelf --print-rpath $OUTPUT_DIR/bin/nunchuk-qt)"
-          
-      - name: Download and install HWI
-        run: |
-          BINDIR="${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}/Appdir/bin"
-          echo "Copying HWI binary to $BINDIR..."
-          mkdir -p "$BINDIR"
-          cp hwi-extracted/hwi "$BINDIR/"
-          chmod +x "$BINDIR/hwi"
-      
-          echo "HWI installed to $BINDIR"
-          ls -l "$BINDIR"
+          fi
 
-      - name: Check linked libraries
-        working-directory: ${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}/Appdir/bin
+          WEBENGINE_SMOKE_DIR="$GITHUB_WORKSPACE/webengine-smoke"
+          rm -rf "$WEBENGINE_SMOKE_DIR"
+          mkdir -p "$WEBENGINE_SMOKE_DIR"
+          cat > "$WEBENGINE_SMOKE_DIR/webengine-smoke.cpp" <<'EOF'
+          #include <QApplication>
+          #include <QCoreApplication>
+          #include <QDebug>
+          #include <QTimer>
+          #include <QWebEnginePage>
+          #include <QWebEngineView>
+
+          int main(int argc, char **argv) {
+            QApplication app(argc, argv);
+            QWebEngineView view;
+            QTimer::singleShot(20000, &app, [&app]() {
+              qCritical("WEBENGINE_TIMEOUT");
+              app.exit(2);
+            });
+            QObject::connect(
+              view.page(), &QWebEnginePage::loadFinished, &app,
+              [&app](bool ok) {
+                if (!ok) {
+                  qCritical("WEBENGINE_LOAD_FAILED");
+                  app.exit(3);
+                  return;
+                }
+                qInfo("WEBENGINE_READY");
+                QTimer::singleShot(5000, &app, [&app]() { app.quit(); });
+              });
+            view.resize(640, 480);
+            view.show();
+            view.setHtml(QStringLiteral("<html><body>nunchuk-webengine-smoke</body></html>"));
+            return app.exec();
+          }
+          EOF
+          cat > "$WEBENGINE_SMOKE_DIR/webengine-smoke.pro" <<'EOF'
+          QT += widgets webenginewidgets
+          CONFIG += c++11 release
+          CONFIG -= debug app_bundle
+          TEMPLATE = app
+          TARGET = nunchuk-webengine-smoke
+          SOURCES += webengine-smoke.cpp
+          EOF
+          (
+            cd "$WEBENGINE_SMOKE_DIR"
+            "$QTPATH/bin/qmake" \
+              QMAKE_CC="$CC" \
+              QMAKE_CXX="$CXX" \
+              QMAKE_LINK="$CXX" \
+              webengine-smoke.pro
+            make -j"$(nproc)"
+          )
+          WEBENGINE_SMOKE_BINARY="$WEBENGINE_SMOKE_DIR/nunchuk-webengine-smoke"
+          test -x "$WEBENGINE_SMOKE_BINARY"
+          patchelf --remove-rpath "$WEBENGINE_SMOKE_BINARY"
+          file "$WEBENGINE_SMOKE_BINARY" | grep -F 'x86-64'
+          echo "WEBENGINE_SMOKE_BINARY=$WEBENGINE_SMOKE_BINARY" >> "$GITHUB_ENV"
+          ccache --show-stats
+
+          NUNCHUK_BINARY=$(find "$BUILD_DIR" \
+            -type f -name nunchuk-qt -perm -111 -print -quit)
+          test -n "$NUNCHUK_BINARY"
+          file "$NUNCHUK_BINARY" | grep -F 'x86-64'
+          echo "NUNCHUK_BINARY=$NUNCHUK_BINARY" >> "$GITHUB_ENV"
+
+      - name: Extract and verify HWI
         run: |
-          ldd ./nunchuk-qt
-          
-      - name: Create .desktop file
-        working-directory: ${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}
+          set -euo pipefail
+
+          HWI_DIR="$RUNNER_TEMP/hwi"
+          rm -rf "$HWI_DIR"
+          mkdir -p "$HWI_DIR"
+          tar -xzf "$HOME/.cache/nunchuk-downloads/hwi.tar.gz" -C "$HWI_DIR"
+
+          HWI_BINARY=$(find "$HWI_DIR" \
+            -type f -name hwi -perm -111 -print -quit)
+          test -n "$HWI_BINARY"
+          file "$HWI_BINARY" | grep -F 'x86-64'
+          "$HWI_BINARY" --version
+          echo "HWI_BINARY=$HWI_BINARY" >> "$GITHUB_ENV"
+
+      - name: Build AppDir dependency closure
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
-          cat <<EOF > Appdir/nunchuk.desktop
+          set -euo pipefail
+
+          APPDIR="$GITHUB_WORKSPACE/AppDir"
+          TOOLS_DIR="$HOME/.cache/nunchuk-downloads"
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin" "$GITHUB_WORKSPACE/reports"
+
+          cat > "$GITHUB_WORKSPACE/nunchuk.desktop" <<'EOF'
           [Desktop Entry]
           Type=Application
           Name=Nunchuk
-          Exec=AppRun
+          Comment=Bitcoin multisig wallet
+          Exec=nunchuk-qt
           Icon=nunchuk-qt
           Categories=Utility;
+          Terminal=false
           EOF
-          
-          cp -L "${{ runner.workspace }}/nunchuk-qt.png" Appdir
 
-      - name: Create Apprun file
-        working-directory: ${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}
-        run: |
-          cat << 'EOF' > Appdir/AppRun
-          #!/bin/bash
-          HERE="$(dirname "$(readlink -f "$0")")"
-          export QTWEBENGINE_DISABLE_SANDBOX=1
-          exec "$HERE/nunchuk-qt.sh" "$@"
+          cat > "$GITHUB_WORKSPACE/nunchuk.AppRun" <<'EOF'
+          #!/bin/sh
+          # nunchuk-custom-apprun
+          set -eu
+
+          APPDIR=${APPDIR:-$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)}
+          export PATH="$APPDIR/usr/bin${PATH:+:$PATH}"
+          export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          export QT_PLUGIN_PATH="$APPDIR/usr/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+          export QML_IMPORT_PATH="$APPDIR/usr/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
+          export QML2_IMPORT_PATH="$APPDIR/usr/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+          export XDG_DATA_DIRS="$APPDIR/usr/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+
+          if [ -x "$APPDIR/usr/libexec/QtWebEngineProcess" ]; then
+            export QTWEBENGINEPROCESS_PATH="$APPDIR/usr/libexec/QtWebEngineProcess"
+          fi
+          if [ -d "$APPDIR/usr/resources" ]; then
+            export QTWEBENGINE_RESOURCES_PATH="$APPDIR/usr/resources"
+          fi
+          if [ -d "$APPDIR/usr/translations/qtwebengine_locales" ]; then
+            export QTWEBENGINE_LOCALES_PATH="$APPDIR/usr/translations/qtwebengine_locales"
+          fi
+
+          exec "$APPDIR/usr/bin/nunchuk-qt" "$@"
           EOF
-          chmod +x Appdir/AppRun    
-          ls -l Appdir
+          chmod 755 "$GITHUB_WORKSPACE/nunchuk.AppRun"
 
-      - name: Create Apprun file
-        working-directory: ${{ runner.workspace }}
+          export PATH="$TOOLS_DIR:$QTPATH/bin:$PATH"
+          export LD_LIBRARY_PATH="$DEPS_LIBRARY_PATH:$QTPATH/lib"
+          export QMAKE="$QTPATH/bin/qmake"
+          export QML_SOURCES_PATHS="$SOURCE_DIR"
+          export EXTRA_QT_MODULES='svg;'
+          export NO_STRIP=1
+
+          GCC_LIBSTDCPP=$("$CXX" -print-file-name=libstdc++.so.6)
+          GCC_LIBGCC=$("$CC" -print-file-name=libgcc_s.so.1)
+          EVENT_LIBRARY=$(ldconfig -p | awk \
+            '$1 == "libevent-2.1.so.7" { print $NF; exit }')
+
+          for library in \
+            "$QTKEYCHAIN_LIBRARY" \
+            "$OLM_LIBRARY" \
+            "$OPENSSL_LIBRARY" \
+            "$OPENSSL_CRYPTO_LIBRARY" \
+            "$GCC_LIBSTDCPP" \
+            "$GCC_LIBGCC" \
+            "$EVENT_LIBRARY"; do
+            test -f "$library"
+          done
+
+          "$TOOLS_DIR/linuxdeploy" \
+            --appdir "$APPDIR" \
+            --executable "$NUNCHUK_BINARY" \
+            --executable "$HWI_BINARY" \
+            --library "$QTKEYCHAIN_LIBRARY" \
+            --library "$OLM_LIBRARY" \
+            --library "$OPENSSL_LIBRARY" \
+            --library "$OPENSSL_CRYPTO_LIBRARY" \
+            --library "$EVENT_LIBRARY" \
+            --desktop-file "$GITHUB_WORKSPACE/nunchuk.desktop" \
+            --icon-file "$TOOLS_DIR/nunchuk-qt.png" \
+            --custom-apprun "$GITHUB_WORKSPACE/nunchuk.AppRun" \
+            --plugin qt
+
+          install -m 0644 "$GCC_LIBSTDCPP" \
+            "$APPDIR/usr/lib/libstdc++.so.6"
+          install -m 0644 "$GCC_LIBGCC" \
+            "$APPDIR/usr/lib/libgcc_s.so.1"
+
+          APPDIR_ELF_ARGS=()
+          while IFS= read -r -d '' candidate; do
+            candidate_type=$(file -b "$candidate")
+            if [[ "$candidate_type" == *ELF* ]]; then
+              APPDIR_ELF_ARGS+=(--deploy-deps-only "$candidate")
+            fi
+          done < <(find "$APPDIR" -type f -print0)
+
+          test "${#APPDIR_ELF_ARGS[@]}" -gt 0
+          rm -f "$APPDIR/AppRun" "$APPDIR/AppRun.wrapped"
+          "$TOOLS_DIR/linuxdeploy" \
+            --appdir "$APPDIR" \
+            "${APPDIR_ELF_ARGS[@]}" \
+            --custom-apprun "$GITHUB_WORKSPACE/nunchuk.AppRun"
+
+          install -d "$APPDIR/usr/share/nunchuk"
+          {
+            echo "version=$BUILD_VERSION"
+            echo "source_ref=$NUNCHUK_REF"
+            echo "source_commit=$SOURCE_COMMIT"
+            echo "source_date_epoch=$SOURCE_DATE_EPOCH"
+            echo "build_timestamp_utc=$BUILD_TIMESTAMP"
+            echo "build_baseline=ubuntu-20.04"
+            echo "glibc_max=$GLIBC_MAX"
+            echo "compiler=$($CXX --version | head -n 1)"
+            echo "qt=$QT_VERSION"
+            echo "qtkeychain=$QTKEYCHAIN_COMMIT"
+            echo "olm=$OLM_COMMIT"
+            echo "openssl=$OPENSSL_VERSION"
+            echo "hwi=$HWI_VERSION"
+          } > "$APPDIR/usr/share/nunchuk/build-info.txt"
+
+      - name: Package AppImage with pinned runtime
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
-          #wget -q https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
-          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
+          set -euo pipefail
 
-      - name: Create AppImage file
-        working-directory: ${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}
+          TOOLS_DIR="$HOME/.cache/nunchuk-downloads"
+          DIST_DIR="$GITHUB_WORKSPACE/dist"
+          mkdir -p "$DIST_DIR"
+          FINAL_APPIMAGE="$DIST_DIR/${ARTIFACT_BASENAME}.AppImage"
+
+          export ARCH=x86_64
+          export VERSION="$BUILD_VERSION"
+          export SOURCE_DATE_EPOCH
+          "$TOOLS_DIR/appimagetool" \
+            --runtime-file "$TOOLS_DIR/runtime-x86_64" \
+            "$GITHUB_WORKSPACE/AppDir" \
+            "$FINAL_APPIMAGE"
+
+          chmod 755 "$FINAL_APPIMAGE"
+          (
+            cd "$DIST_DIR"
+            sha256sum "$(basename "$FINAL_APPIMAGE")" \
+              > "$(basename "$FINAL_APPIMAGE").sha256"
+          )
+
+          file "$FINAL_APPIMAGE"
+          du -h "$FINAL_APPIMAGE"
+          {
+            echo "FINAL_APPIMAGE=$FINAL_APPIMAGE"
+            echo "FINAL_CHECKSUM=${FINAL_APPIMAGE}.sha256"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify final AppImage
         run: |
-          APP_IMAGE_TOOL="${{ runner.workspace }}/appimagetool-x86_64.AppImage"
-          ARCH=x86_64 "$APP_IMAGE_TOOL" Appdir "nunchuk-linux-v${{ env.LATEST_VERSION }}.AppImage"
-          mv "nunchuk-linux-v${{ env.LATEST_VERSION }}.AppImage" "${{ runner.workspace }}/"
+          set -euo pipefail
 
-      - name: Zip release package
-        working-directory: ${{ runner.workspace }}
+          REPORTS_DIR="$GITHUB_WORKSPACE/reports"
+          EXTRACT_DIR="$RUNNER_TEMP/appimage-extract"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          (
+            cd "$EXTRACT_DIR"
+            "$FINAL_APPIMAGE" --appimage-extract > /dev/null
+          )
+          BUNDLE_ROOT="$EXTRACT_DIR/squashfs-root"
+
+          test -x "$BUNDLE_ROOT/AppRun"
+          test -x "$BUNDLE_ROOT/usr/bin/nunchuk-qt"
+          test -x "$BUNDLE_ROOT/usr/bin/hwi"
+          if grep -Rqs 'QTWEBENGINE_DISABLE_SANDBOX' \
+            "$BUNDLE_ROOT/AppRun" "$BUNDLE_ROOT/AppRun.wrapped"; then
+            echo 'ERROR: Production AppRun đang tắt Qt WebEngine sandbox.'
+            exit 1
+          fi
+          test -e "$BUNDLE_ROOT/.DirIcon"
+          test -f "$BUNDLE_ROOT/nunchuk-qt.png"
+          test -f "$BUNDLE_ROOT/usr/share/nunchuk/build-info.txt"
+          grep -Fqx "source_commit=$SOURCE_COMMIT" \
+            "$BUNDLE_ROOT/usr/share/nunchuk/build-info.txt"
+
+          DESKTOP_FILE=$(find "$BUNDLE_ROOT" \
+            -type f -name 'nunchuk.desktop' -print -quit)
+          test -n "$DESKTOP_FILE"
+          desktop-file-validate --no-hints "$DESKTOP_FILE"
+
+          test -x "$BUNDLE_ROOT/usr/libexec/QtWebEngineProcess"
+          test -f "$BUNDLE_ROOT/usr/libexec/qt.conf"
+          test -d "$BUNDLE_ROOT/usr/qml/QtWebEngine"
+          test -n "$(find "$BUNDLE_ROOT/usr/qml/QtWebEngine" \
+            -type f -print -quit)"
+          test -f "$BUNDLE_ROOT/usr/resources/icudtl.dat"
+          test -f "$BUNDLE_ROOT/usr/resources/qtwebengine_resources.pak"
+          test -f "$BUNDLE_ROOT/usr/resources/qtwebengine_resources_100p.pak"
+          test -f "$BUNDLE_ROOT/usr/resources/qtwebengine_resources_200p.pak"
+          test -n "$(find \
+            "$BUNDLE_ROOT/usr/translations/qtwebengine_locales" \
+            -type f -name '*.pak' -print -quit)"
+
+          for optional_webengine_resource in \
+            v8_context_snapshot.bin \
+            qtwebengine_devtools_resources.pak; do
+            if [ -f "$QTPATH/resources/$optional_webengine_resource" ]; then
+              test -f "$BUNDLE_ROOT/usr/resources/$optional_webengine_resource"
+            fi
+          done
+
+          test -f "$BUNDLE_ROOT/usr/lib/libstdc++.so.6"
+          test -f "$BUNDLE_ROOT/usr/lib/libgcc_s.so.1"
+          test -n "$(find "$BUNDLE_ROOT/usr/lib" \
+            -type f -name 'libevent-2.1.so.*' -print -quit)"
+
+          declare -A BUNDLED_NAMES=()
+          while IFS= read -r -d '' bundled_file; do
+            BUNDLED_NAMES["$(basename "$bundled_file")"]=1
+          done < <(find "$BUNDLE_ROOT" \( -type f -o -type l \) -print0)
+
+          for bundled_name in "${!BUNDLED_NAMES[@]}"; do
+            case "$bundled_name" in
+              ld-*.so*|libanl.so*|libanl-*.so*|\
+              libBrokenLocale.so*|libBrokenLocale-*.so*|\
+              libc.so*|libc-*.so*|libdl.so*|libdl-*.so*|\
+              libm.so*|libm-*.so*|libmvec.so*|libmvec-*.so*|\
+              libnss_*.so*|\
+              libpthread.so*|libpthread-*.so*|\
+              libresolv.so*|libresolv-*.so*|librt.so*|librt-*.so*|\
+              libthread_db.so*|libthread_db-*.so*|\
+              libutil.so*|libutil-*.so*)
+                echo "ERROR: AppImage không được bundle $bundled_name."
+                exit 1
+                ;;
+            esac
+          done
+
+          is_allowed_system_library() {
+            case "$1" in
+              ld-linux*.so.*|libanl.so.*|libBrokenLocale.so.*|libc.so.*|\
+              libdl.so.*|libm.so.*|libmvec.so.*|libnss_*.so.*|\
+              libpthread.so.*|libresolv.so.*|librt.so.*|libthread_db.so.*|\
+              libutil.so.*|libGL.so.*|libEGL.so.*|libGLdispatch.so.*|\
+              libGLX.so.*|libOpenGL.so.*|libdrm.so.*|libglapi.so.*|\
+              libgbm.so.*|libxcb.so.*|libX11.so.*|libX11-xcb.so.*|\
+              libwayland-client.so.*|libasound.so.*|libfontconfig.so.*|\
+              libfreetype.so.*|libharfbuzz.so.*|libcom_err.so.*|\
+              libexpat.so.*|libgpg-error.so.*|libICE.so.*|libSM.so.*|\
+              libusb-1.0.so.*|libuuid.so.*|libz.so.*|libjack.so.*|\
+              libpipewire-0.3.so.*|libxcb-dri2.so.*|libxcb-dri3.so.*|\
+              libfribidi.so.*|libgmp.so.*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          : > "$REPORTS_DIR/elf-dependencies.txt"
+          : > "$REPORTS_DIR/glibc-versions.txt"
+          : > "$REPORTS_DIR/unsafe-rpaths.txt"
+          : > "$REPORTS_DIR/missing-dependencies.txt"
+
+          ELF_FILES=()
+          while IFS= read -r -d '' candidate; do
+            candidate_type=$(file -b "$candidate")
+            if [[ "$candidate_type" == *ELF* ]]; then
+              ELF_FILES+=("$candidate")
+            fi
+          done < <(find "$BUNDLE_ROOT" -type f -print0)
+          test "${#ELF_FILES[@]}" -gt 0
+
+          for elf_file in "${ELF_FILES[@]}"; do
+            elf_type=$(file -b "$elf_file")
+            if [[ "$elf_type" != *x86-64* ]]; then
+              echo "ERROR: ELF không phải x86-64: $elf_file ($elf_type)"
+              exit 1
+            fi
+
+            set +e
+            ldd_output=$(LD_LIBRARY_PATH="$BUNDLE_ROOT/usr/lib" \
+              ldd "$elf_file" 2>&1)
+            ldd_status=$?
+            set -e
+            {
+              echo "===== ${elf_file#"$BUNDLE_ROOT"/} ====="
+              echo "$ldd_output"
+              echo "ldd_exit=$ldd_status"
+            } >> "$REPORTS_DIR/elf-dependencies.txt"
+
+            if [ "$ldd_status" -ne 0 ] && \
+               ! grep -Eq 'statically linked|not a dynamic executable' \
+                 <<< "$ldd_output"; then
+              {
+                echo "===== ${elf_file#"$BUNDLE_ROOT"/} ====="
+                echo "unexpected ldd exit: $ldd_status"
+                echo "$ldd_output"
+              } >> "$REPORTS_DIR/missing-dependencies.txt"
+            fi
+            if grep -q 'not found' <<< "$ldd_output"; then
+              {
+                echo "===== ${elf_file#"$BUNDLE_ROOT"/} ====="
+                echo "$ldd_output"
+              } >> "$REPORTS_DIR/missing-dependencies.txt"
+            fi
+
+            while IFS= read -r needed_library; do
+              [ -n "$needed_library" ] || continue
+              if is_allowed_system_library "$needed_library"; then
+                continue
+              fi
+              if [ -z "${BUNDLED_NAMES[$needed_library]:-}" ]; then
+                echo "${elf_file#"$BUNDLE_ROOT"/}: $needed_library (not bundled)" \
+                  >> "$REPORTS_DIR/missing-dependencies.txt"
+                continue
+              fi
+
+              resolved_path=$(awk -v library="$needed_library" \
+                '$1 == library && $2 == "=>" { print $3; exit }' \
+                <<< "$ldd_output")
+              case "$resolved_path" in
+                "$BUNDLE_ROOT"/*)
+                  ;;
+                *)
+                  echo "${elf_file#"$BUNDLE_ROOT"/}: $needed_library resolved outside bundle: ${resolved_path:-unresolved}" \
+                    >> "$REPORTS_DIR/missing-dependencies.txt"
+                  ;;
+              esac
+            done < <(
+              readelf -d "$elf_file" 2>/dev/null | \
+                sed -n 's/.*Shared library: \[\(.*\)\]/\1/p'
+            )
+
+            rpath=$(patchelf --print-rpath "$elf_file" 2>/dev/null || true)
+            if grep -Eq '(^|:)/' <<< "$rpath"; then
+              echo "${elf_file#"$BUNDLE_ROOT"/}: $rpath" \
+                >> "$REPORTS_DIR/unsafe-rpaths.txt"
+            fi
+
+            version_info=$(readelf --version-info "$elf_file" 2>/dev/null || true)
+            grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' <<< "$version_info" \
+              >> "$REPORTS_DIR/glibc-versions.txt" || true
+            if grep -F 'GLIBC_PRIVATE' <<< "$version_info" > /dev/null; then
+              echo "ERROR: ${elf_file#"$BUNDLE_ROOT"/} tham chiếu GLIBC_PRIVATE."
+              exit 1
+            fi
+          done
+
+          if [ -s "$REPORTS_DIR/missing-dependencies.txt" ]; then
+            cat "$REPORTS_DIR/missing-dependencies.txt"
+            exit 1
+          fi
+          if [ -s "$REPORTS_DIR/unsafe-rpaths.txt" ]; then
+            cat "$REPORTS_DIR/unsafe-rpaths.txt"
+            exit 1
+          fi
+
+          sort -Vu -o "$REPORTS_DIR/glibc-versions.txt" \
+            "$REPORTS_DIR/glibc-versions.txt"
+          while IFS= read -r glibc_symbol; do
+            glibc_version=${glibc_symbol#GLIBC_}
+            if dpkg --compare-versions "$glibc_version" gt "$GLIBC_MAX"; then
+              echo "ERROR: $glibc_symbol vượt compatibility floor $GLIBC_MAX."
+              exit 1
+            fi
+          done < "$REPORTS_DIR/glibc-versions.txt"
+
+          BUNDLED_LIBSTDCPP="$BUNDLE_ROOT/usr/lib/libstdc++.so.6"
+          strings "$BUNDLED_LIBSTDCPP" | \
+            grep -E '^GLIBCXX_[0-9]+(\.[0-9]+)+' | sort -Vu \
+            > "$REPORTS_DIR/libstdcxx-provided.txt"
+          for elf_file in "${ELF_FILES[@]}"; do
+            while IFS= read -r required_symbol; do
+              grep -Fqx "$required_symbol" \
+                "$REPORTS_DIR/libstdcxx-provided.txt" || {
+                  echo "ERROR: Bundled libstdc++ thiếu $required_symbol."
+                  exit 1
+                }
+            done < <(
+              readelf --version-info "$elf_file" 2>/dev/null | \
+                grep -oE 'GLIBCXX_[0-9]+(\.[0-9]+)+' | sort -u || true
+            )
+          done
+
+          LD_LIBRARY_PATH="$BUNDLE_ROOT/usr/lib" \
+            "$BUNDLE_ROOT/usr/bin/hwi" --version | \
+            tee "$REPORTS_DIR/hwi-version.txt"
+
+          cp "$BUNDLE_ROOT/usr/share/nunchuk/build-info.txt" \
+            "$REPORTS_DIR/build-info.txt"
+          echo "Verified ${#ELF_FILES[@]} ELF files."
+
+      - name: Show compiler cache statistics
+        if: always()
         run: |
-          final_dir="nunchuk-linux-v${{ env.LATEST_VERSION }}"
-          final_zip="nunchuk-linux-v${{ env.LATEST_VERSION }}.zip"
-          zip -r "$final_zip" "$final_dir"
-          echo "Release package created."
+          ccache --show-stats || true
 
-      - name: Upload Nunchuk AppImage
-        uses: actions/upload-artifact@v4
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: nunchuk-linux-v${{ env.LATEST_VERSION }}_${{ env.BUILD_BRANCH }}_${{ env.TIMESTAMP }}
-          path: "${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}.AppImage"
-          
-      - name: Upload Nunchuk Built
-        uses: actions/upload-artifact@v4
+          name: nunchuk-linux-x86_64-build-reports
+          path: ${{ github.workspace }}/reports
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload WebEngine smoke harness
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: nunchuk-linux-built
-          path: ${{ runner.workspace }}/nunchuk-linux-v${{ env.LATEST_VERSION }}.zip
+          name: nunchuk-linux-x86_64-webengine-smoke
+          path: ${{ env.WEBENGINE_SMOKE_BINARY }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload verified AppImage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nunchuk-linux-x86_64-appimage
+          path: |
+            ${{ env.FINAL_APPIMAGE }}
+            ${{ env.FINAL_CHECKSUM }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload AppDir for debugging
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_appdir }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nunchuk-linux-x86_64-appdir
+          path: ${{ github.workspace }}/AppDir
+          if-no-files-found: error
+          retention-days: 7
+
+  smoke-test:
+    name: Smoke test (${{ matrix.name }})
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-20.04
+            image: ubuntu:20.04
+          - name: debian-11
+            image: debian:11-slim
+          - name: ubuntu-24.04
+            image: ubuntu:24.04
+    container:
+      image: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install clean desktop runtime baseline
+        run: |
+          set -euo pipefail
+          apt-get update
+
+          ALSA_PACKAGE=libasound2
+          if apt-cache show libasound2t64 > /dev/null 2>&1; then
+            ALSA_PACKAGE=libasound2t64
+          fi
+
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            dbus-x11 \
+            file \
+            fontconfig \
+            "$ALSA_PACKAGE" \
+            libegl1 \
+            libfontconfig1 \
+            libfreetype6 \
+            libgl1 \
+            libgl1-mesa-dri \
+            libx11-6 \
+            libx11-xcb1 \
+            libxcb1 \
+            libxkbcommon0 \
+            procps \
+            xauth \
+            xdotool \
+            xvfb
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Download AppImage built once
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nunchuk-linux-x86_64-appimage
+          path: dist
+
+      - name: Verify checksum and extracted payload
+        run: |
+          set -euo pipefail
+
+          mapfile -t APPIMAGES < <(
+            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+          )
+          test "${#APPIMAGES[@]}" -eq 1
+          APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
+          chmod 755 "$APPIMAGE"
+
+          (
+            cd "$(dirname "$APPIMAGE")"
+            sha256sum -c "$(basename "$APPIMAGE").sha256"
+          )
+
+          EXTRACT_DIR="$RUNNER_TEMP/smoke-extract"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          (
+            cd "$EXTRACT_DIR"
+            "$APPIMAGE" --appimage-extract > /dev/null
+          )
+          BUNDLE_ROOT="$EXTRACT_DIR/squashfs-root"
+
+          test -x "$BUNDLE_ROOT/AppRun"
+          test -x "$BUNDLE_ROOT/usr/bin/nunchuk-qt"
+          test -x "$BUNDLE_ROOT/usr/bin/hwi"
+          test -x "$BUNDLE_ROOT/usr/libexec/QtWebEngineProcess"
+
+          : > smoke-dependencies.log
+          missing_runtime_dependency=0
+          while IFS= read -r -d '' candidate; do
+            candidate_type=$(file -b "$candidate")
+            [[ "$candidate_type" == *ELF* ]] || continue
+            set +e
+            ldd_output=$(LD_LIBRARY_PATH="$BUNDLE_ROOT/usr/lib" \
+              ldd "$candidate" 2>&1)
+            ldd_status=$?
+            set -e
+            {
+              echo "===== ${candidate#"$BUNDLE_ROOT"/} ====="
+              echo "$ldd_output"
+              echo "ldd_exit=$ldd_status"
+            } >> smoke-dependencies.log
+            if [ "$ldd_status" -ne 0 ] && \
+               ! grep -Eq 'statically linked|not a dynamic executable' \
+                 <<< "$ldd_output"; then
+              missing_runtime_dependency=1
+            fi
+            if grep -q 'not found' <<< "$ldd_output"; then
+              missing_runtime_dependency=1
+            fi
+          done < <(find "$BUNDLE_ROOT" -type f -print0)
+
+          if [ "$missing_runtime_dependency" -ne 0 ]; then
+            cat smoke-dependencies.log
+            echo 'ERROR: Payload còn dependency bị thiếu trên distro sạch.'
+            exit 1
+          fi
+
+          dbus-uuidgen --ensure=/etc/machine-id
+          useradd --create-home --shell /bin/bash nunchuk-test
+          install -d -m 0700 -o nunchuk-test -g nunchuk-test \
+            /tmp/nunchuk-test-runtime
+          runuser -u nunchuk-test -- env \
+            HOME=/home/nunchuk-test \
+            XDG_RUNTIME_DIR=/tmp/nunchuk-test-runtime \
+            LD_LIBRARY_PATH="$BUNDLE_ROOT/usr/lib" \
+            "$BUNDLE_ROOT/usr/bin/hwi" --version
+
+          echo "APPIMAGE=$APPIMAGE" >> "$GITHUB_ENV"
+
+      - name: Launch GUI as an unprivileged user
+        run: |
+          set -euo pipefail
+
+          launcher_pid=''
+          cleanup_smoke() {
+            pkill -TERM -u nunchuk-test -x nunchuk-qt 2>/dev/null || true
+            if [ -n "$launcher_pid" ] && kill -0 "$launcher_pid" 2>/dev/null; then
+              kill -TERM "$launcher_pid" 2>/dev/null || true
+              for _ in $(seq 1 20); do
+                kill -0 "$launcher_pid" 2>/dev/null || break
+                sleep 0.25
+              done
+              kill -KILL "$launcher_pid" 2>/dev/null || true
+            fi
+            if [ -n "$launcher_pid" ]; then
+              wait "$launcher_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_smoke EXIT
+
+          runuser -u nunchuk-test -- \
+            timeout --kill-after=5s 60s \
+            dbus-run-session -- \
+            xvfb-run -a --server-args='-screen 0 1280x720x24' \
+            env \
+              HOME=/home/nunchuk-test \
+              XDG_RUNTIME_DIR=/tmp/nunchuk-test-runtime \
+              APPIMAGE_EXTRACT_AND_RUN=1 \
+              QTWEBENGINE_DISABLE_SANDBOX=1 \
+              LIBGL_ALWAYS_SOFTWARE=1 \
+              "$APPIMAGE" \
+            > smoke.log 2>&1 &
+          launcher_pid=$!
+
+          app_started=0
+          for _ in $(seq 1 60); do
+            if pgrep -u nunchuk-test -x nunchuk-qt > /dev/null; then
+              app_started=1
+              break
+            fi
+            kill -0 "$launcher_pid" 2>/dev/null || break
+            sleep 0.5
+          done
+
+          cat smoke.log
+          if [ "$app_started" -ne 1 ]; then
+            echo 'ERROR: Không quan sát được process nunchuk-qt trong 30 giây.'
+            exit 1
+          fi
+
+          app_pid=$(pgrep -o -u nunchuk-test -x nunchuk-qt)
+          window_ready=0
+          for _ in $(seq 1 20); do
+            [ -r "/proc/$app_pid/environ" ] || break
+            app_display=$(tr '\0' '\n' < "/proc/$app_pid/environ" | \
+              sed -n 's/^DISPLAY=//p')
+            app_xauthority=$(tr '\0' '\n' < "/proc/$app_pid/environ" | \
+              sed -n 's/^XAUTHORITY=//p')
+            if [ -n "$app_display" ] && \
+               DISPLAY="$app_display" XAUTHORITY="$app_xauthority" \
+                 xdotool search --onlyvisible --pid "$app_pid" '.*' \
+                 > /dev/null 2>&1; then
+              window_ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$window_ready" -ne 1 ]; then
+            cat smoke.log
+            echo 'ERROR: Process chạy nhưng không tạo cửa sổ GUI hiển thị được.'
+            exit 1
+          fi
+
+          sleep 5
+          if ! pgrep -u nunchuk-test -x nunchuk-qt > /dev/null || \
+             ! kill -0 "$launcher_pid" 2>/dev/null; then
+            cat smoke.log
+            echo 'ERROR: GUI không duy trì hoạt động ổn định trong 5 giây.'
+            exit 1
+          fi
+
+          if grep -Eqi \
+            'error while loading shared libraries|version .*GLIBC(X{0,2})_.* not found|could not load the qt platform plugin|module ".*" is not installed|qtwebengineprocess.*not found' \
+            smoke.log; then
+            echo 'ERROR: Phát hiện lỗi runtime nghiêm trọng trong smoke test.'
+            exit 1
+          fi
+
+          cleanup_smoke
+          trap - EXIT
+
+      - name: Upload smoke-test log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nunchuk-linux-x86_64-smoke-${{ matrix.name }}
+          path: |
+            smoke.log
+            smoke-dependencies.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sandbox-smoke-test:
+    name: Smoke test production WebEngine sandbox
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Install GUI smoke-test dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            dbus-x11 \
+            libgl1-mesa-dri \
+            procps \
+            xauth \
+            xdotool \
+            xvfb
+
+      - name: Download AppImage built once
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nunchuk-linux-x86_64-appimage
+          path: dist
+
+      - name: Download WebEngine smoke harness
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: nunchuk-linux-x86_64-webengine-smoke
+          path: test-tools
+
+      - name: Launch production AppImage through FUSE
+        run: |
+          set -euo pipefail
+
+          mapfile -t APPIMAGES < <(
+            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+          )
+          test "${#APPIMAGES[@]}" -eq 1
+          APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
+          chmod 755 "$APPIMAGE"
+          test -c /dev/fuse
+
+          (
+            cd "$(dirname "$APPIMAGE")"
+            sha256sum -c "$(basename "$APPIMAGE").sha256"
+          )
+
+          XDG_RUNTIME_DIR="$RUNNER_TEMP/nunchuk-xdg-runtime"
+          install -d -m 0700 "$XDG_RUNTIME_DIR"
+          export XDG_RUNTIME_DIR
+
+          launcher_pid=''
+          runner_uid=$(id -u)
+          cleanup_smoke() {
+            pkill -TERM -u "$runner_uid" -x nunchuk-qt 2>/dev/null || true
+            if [ -n "$launcher_pid" ] && kill -0 "$launcher_pid" 2>/dev/null; then
+              kill -TERM "$launcher_pid" 2>/dev/null || true
+              for _ in $(seq 1 20); do
+                kill -0 "$launcher_pid" 2>/dev/null || break
+                sleep 0.25
+              done
+              kill -KILL "$launcher_pid" 2>/dev/null || true
+            fi
+            if [ -n "$launcher_pid" ]; then
+              wait "$launcher_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_smoke EXIT
+
+          timeout --kill-after=5s 60s \
+            dbus-run-session -- \
+            xvfb-run -a --server-args='-screen 0 1280x720x24' \
+            env \
+              LIBGL_ALWAYS_SOFTWARE=1 \
+              "$APPIMAGE" \
+            > sandbox-smoke.log 2>&1 &
+          launcher_pid=$!
+
+          app_started=0
+          for _ in $(seq 1 60); do
+            if pgrep -u "$runner_uid" -x nunchuk-qt > /dev/null; then
+              app_started=1
+              break
+            fi
+            kill -0 "$launcher_pid" 2>/dev/null || break
+            sleep 0.5
+          done
+
+          cat sandbox-smoke.log
+          if [ "$app_started" -ne 1 ]; then
+            echo 'ERROR: AppImage/FUSE không khởi động được process nunchuk-qt.'
+            exit 1
+          fi
+
+          app_pid=$(pgrep -o -u "$runner_uid" -x nunchuk-qt)
+          window_ready=0
+          for _ in $(seq 1 20); do
+            [ -r "/proc/$app_pid/environ" ] || break
+            app_display=$(tr '\0' '\n' < "/proc/$app_pid/environ" | \
+              sed -n 's/^DISPLAY=//p')
+            app_xauthority=$(tr '\0' '\n' < "/proc/$app_pid/environ" | \
+              sed -n 's/^XAUTHORITY=//p')
+            if [ -n "$app_display" ] && \
+               DISPLAY="$app_display" XAUTHORITY="$app_xauthority" \
+                 xdotool search --onlyvisible --pid "$app_pid" '.*' \
+                 > /dev/null 2>&1; then
+              window_ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$window_ready" -ne 1 ]; then
+            cat sandbox-smoke.log
+            echo 'ERROR: AppImage chạy nhưng chưa render được cửa sổ GUI.'
+            exit 1
+          fi
+
+          sleep 5
+          if ! pgrep -u "$runner_uid" -x nunchuk-qt > /dev/null || \
+             ! kill -0 "$launcher_pid" 2>/dev/null; then
+            cat sandbox-smoke.log
+            echo 'ERROR: GUI/sandbox không duy trì hoạt động ổn định trong 5 giây.'
+            exit 1
+          fi
+
+          if grep -Eqi \
+            'fuse: failed|cannot mount AppImage|no usable sandbox|running as root without --no-sandbox|error while loading shared libraries|version .*GLIBC(X{0,2})_.* not found|could not load the qt platform plugin|module ".*" is not installed|qtwebengineprocess.*not found' \
+            sandbox-smoke.log; then
+            echo 'ERROR: Production WebEngine sandbox/runtime không hoạt động.'
+            exit 1
+          fi
+
+          cleanup_smoke
+          trap - EXIT
+
+      - name: Verify bundled Qt WebEngine sandbox
+        run: |
+          set -euo pipefail
+
+          mapfile -t APPIMAGES < <(
+            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+          )
+          test "${#APPIMAGES[@]}" -eq 1
+          APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
+
+          WEBENGINE_SMOKE=$(find test-tools -maxdepth 1 \
+            -type f -name nunchuk-webengine-smoke -print -quit)
+          test -n "$WEBENGINE_SMOKE"
+          chmod 755 "$WEBENGINE_SMOKE"
+
+          EXTRACT_DIR="$RUNNER_TEMP/webengine-smoke-extract"
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+          (
+            cd "$EXTRACT_DIR"
+            "$APPIMAGE" --appimage-extract > /dev/null
+          )
+          BUNDLE_ROOT="$EXTRACT_DIR/squashfs-root"
+
+          XDG_RUNTIME_DIR="$RUNNER_TEMP/webengine-xdg-runtime"
+          install -d -m 0700 "$XDG_RUNTIME_DIR"
+          export XDG_RUNTIME_DIR
+
+          timeout --kill-after=5s 30s \
+            dbus-run-session -- \
+            xvfb-run -a --server-args='-screen 0 1280x720x24' \
+            env \
+              LD_LIBRARY_PATH="$BUNDLE_ROOT/usr/lib" \
+              QT_PLUGIN_PATH="$BUNDLE_ROOT/usr/plugins" \
+              QTWEBENGINEPROCESS_PATH="$BUNDLE_ROOT/usr/libexec/QtWebEngineProcess" \
+              QTWEBENGINE_RESOURCES_PATH="$BUNDLE_ROOT/usr/resources" \
+              QTWEBENGINE_LOCALES_PATH="$BUNDLE_ROOT/usr/translations/qtwebengine_locales" \
+              LIBGL_ALWAYS_SOFTWARE=1 \
+              "$WEBENGINE_SMOKE" \
+            > webengine-smoke.log 2>&1 &
+          harness_pid=$!
+
+          WEBENGINE_PROCESS="$BUNDLE_ROOT/usr/libexec/QtWebEngineProcess"
+          WEBENGINE_PROCESS=$(readlink -f "$WEBENGINE_PROCESS")
+          webengine_process_running() {
+            local process_executable
+            for process_executable in /proc/[0-9]*/exe; do
+              if [ "$(readlink -f "$process_executable" 2>/dev/null || true)" = \
+                   "$WEBENGINE_PROCESS" ]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          webengine_process_seen=0
+          for _ in $(seq 1 120); do
+            if webengine_process_running; then
+              webengine_process_seen=1
+            fi
+            if grep -Fq 'WEBENGINE_READY' webengine-smoke.log 2>/dev/null && \
+               [ "$webengine_process_seen" -eq 1 ]; then
+              break
+            fi
+            kill -0 "$harness_pid" 2>/dev/null || break
+            sleep 0.25
+          done
+
+          set +e
+          wait "$harness_pid"
+          harness_status=$?
+          set -e
+          cat webengine-smoke.log
+
+          if [ "$harness_status" -ne 0 ] || \
+             [ "$webengine_process_seen" -ne 1 ] || \
+             ! grep -Fq 'WEBENGINE_READY' webengine-smoke.log; then
+            echo 'ERROR: Qt WebEngine/sandbox không hoàn thành smoke test.'
+            exit 1
+          fi
+          if grep -Eqi \
+            'no usable sandbox|running as root without --no-sandbox|error while loading shared libraries|qtwebengineprocess.*not found|WEBENGINE_(TIMEOUT|LOAD_FAILED)' \
+            webengine-smoke.log; then
+            echo 'ERROR: Phát hiện lỗi Qt WebEngine sandbox/runtime.'
+            exit 1
+          fi
+
+      - name: Upload sandbox smoke-test log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nunchuk-linux-x86_64-sandbox-smoke
+          path: |
+            sandbox-smoke.log
+            webengine-smoke.log
+          if-no-files-found: ignore
+          retention-days: 14
