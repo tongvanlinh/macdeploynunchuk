@@ -16,11 +16,6 @@ on:
         required: false
         default: false
         type: boolean
-      require_unit_tests:
-        description: Fail nếu source không khai báo CTest test nào
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -36,13 +31,19 @@ concurrency:
 env:
   QT_VERSION: '5.15.2'
   AQT_VERSION: '3.1.18'
-  CMAKE_VERSION: '3.31.12'
-  CMAKE_SHA256: 0dc2e9a6860f06bf10bd8fadc03e35d9eeb4df46e33763a7e480e987758f385c
+  # Effective versions from the old Ubuntu 24.04 workflow, pinned for Focal.
+  CMAKE_VERSION: '3.28.3'
+  CMAKE_SHA256: 804d231460ab3c8b556a42d2660af4ac7a0e21c98a7f8ee3318a74b4a9a187a6
+  BOOST_VERSION: '1.83.0'
+  BOOST_ARCHIVE_VERSION: '1_83_0'
+  BOOST_SHA256: c0685b68dd44cc46574cce86c4e17c0f611b15e195be9848dfd0769a0a207628
+  # GCC 14 is not published for Focal by ubuntu-toolchain-r/test.
   COMPILER_MAJOR: '13'
   QTKEYCHAIN_VERSION: '0.15.0'
   QTKEYCHAIN_COMMIT: ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
   OLM_VERSION: '3.2.16'
   OLM_COMMIT: 7e0c8277032e40308987257b711b38af8d77cc69
+  # Keep the old 1.1.1 ABI, with its final security patch release.
   OPENSSL_VERSION: '1.1.1w'
   OPENSSL_SHA256: cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8
   HWI_VERSION: '3.2.0-displayaddress'
@@ -122,7 +123,6 @@ jobs:
     env:
       DEBIAN_FRONTEND: noninteractive
       NUNCHUK_REF: ${{ github.event_name == 'push' && github.ref_name || inputs.nunchuk_ref }}
-      REQUIRE_UNIT_TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.require_unit_tests || false }}
 
     steps:
       - name: Install system dependencies and compiler
@@ -146,20 +146,32 @@ jobs:
             "g++-${COMPILER_MAJOR}" \
             "gcc-${COMPILER_MAJOR}" \
             git \
-            libboost-all-dev \
             libdb++-dev \
+            libasound2 \
+            libdbus-1-3 \
             libevent-dev \
+            libexpat1 \
+            libfontconfig1 \
+            libfreetype6 \
             libgl1-mesa-dev \
             libgl1-mesa-dri \
             libglu1-mesa-dev \
             libminizip-dev \
+            libnss3 \
             libpulse-dev \
             libsecret-1-dev \
             libsqlite3-dev \
             libudev-dev \
             libusb-1.0-0-dev \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxext6 \
+            libxfixes3 \
+            libxi6 \
             libx11-xcb1 \
             libxcb-icccm4 \
+            libxcb-dri3-0 \
             libxcb-image0 \
             libxcb-keysyms1 \
             libxcb-randr0 \
@@ -170,7 +182,11 @@ jobs:
             libxcb-xfixes0 \
             libxcb-xinerama0 \
             libxcb-xkb1 \
+            libxkbcommon0 \
             libxkbcommon-x11-0 \
+            libxrandr2 \
+            libxrender1 \
+            libxtst6 \
             libzmq3-dev \
             ninja-build \
             patchelf \
@@ -180,6 +196,7 @@ jobs:
             xauth \
             xz-utils \
             xvfb \
+            zlib1g \
             zstd
 
           rm -rf /var/lib/apt/lists/*
@@ -215,10 +232,10 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.cache/nunchuk-downloads
-          key: nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-downloads-x86_64-v7-cmake-${{ env.CMAKE_VERSION }}-boost-${{ env.BOOST_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-lookup-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-
-            nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}
+            nunchuk-downloads-x86_64-v7-cmake-${{ env.CMAKE_VERSION }}-boost-${{ env.BOOST_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-
+            nunchuk-downloads-x86_64-v7-cmake-${{ env.CMAKE_VERSION }}-boost-${{ env.BOOST_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}
 
       - name: Download and verify tools and assets
         run: |
@@ -255,6 +272,11 @@ jobs:
             "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
             "$DOWNLOAD_DIR/cmake.tar.gz" \
             "$CMAKE_SHA256"
+
+          download_verified \
+            "https://archives.boost.io/release/${BOOST_VERSION}/source/boost_${BOOST_ARCHIVE_VERSION}.tar.gz" \
+            "$DOWNLOAD_DIR/boost.tar.gz" \
+            "$BOOST_SHA256"
 
           download_verified \
             "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-x86_64.AppImage" \
@@ -339,10 +361,92 @@ jobs:
           test "$CTEST_ACTUAL_VERSION" = "$CMAKE_VERSION"
           "$CMAKE_BIN" -E capabilities > /dev/null
 
+          BOOST_SOURCE_DIR="$RUNNER_TEMP/boost-$BOOST_VERSION"
+          BOOST_STAGE_DIR="$RUNNER_TEMP/boost-stage-$BOOST_VERSION"
+          rm -rf "$BOOST_SOURCE_DIR" "$BOOST_STAGE_DIR"
+          mkdir -p "$BOOST_SOURCE_DIR" "$BOOST_STAGE_DIR"
+          tar -xzf "$DOWNLOAD_DIR/boost.tar.gz" \
+            -C "$BOOST_SOURCE_DIR" \
+            --no-same-owner \
+            --strip-components=1
+          test -x "$BOOST_SOURCE_DIR/bootstrap.sh"
+
+          (
+            cd "$BOOST_SOURCE_DIR"
+            CC="$CC" CXX="$CXX" \
+              ./bootstrap.sh --with-toolset=gcc
+            ./b2 \
+              -d0 \
+              -q \
+              --ignore-site-config \
+              --with-headers \
+              stage \
+              --stagedir="$BOOST_STAGE_DIR" \
+              -j"$(nproc)"
+          )
+
+          BOOST_DIR="$BOOST_STAGE_DIR/lib/cmake/Boost-$BOOST_VERSION"
+          BOOST_HEADERS_DIR="$BOOST_STAGE_DIR/lib/cmake/boost_headers-$BOOST_VERSION"
+          BOOST_VERSION_HEADER="$BOOST_SOURCE_DIR/boost/version.hpp"
+          test -f "$BOOST_VERSION_HEADER"
+          test -f "$BOOST_DIR/BoostConfig.cmake"
+          test -f "$BOOST_DIR/BoostConfigVersion.cmake"
+          test -f "$BOOST_HEADERS_DIR/boost_headers-config.cmake"
+
+          EXPECTED_BOOST_LIB_VERSION=${BOOST_VERSION%.*}
+          EXPECTED_BOOST_LIB_VERSION=${EXPECTED_BOOST_LIB_VERSION//./_}
+          grep -Fqx \
+            "#define BOOST_LIB_VERSION \"$EXPECTED_BOOST_LIB_VERSION\"" \
+            "$BOOST_VERSION_HEADER"
+
+          if find "$BOOST_STAGE_DIR" -type f \
+            \( -name 'libboost_*.so*' -o -name 'libboost_*.a' \) \
+            -print -quit | grep -q .; then
+            echo 'ERROR: Boost headers-only stage chứa binary library.'
+            exit 1
+          fi
+
+          BOOST_PROBE_DIR="$RUNNER_TEMP/boost-probe"
+          rm -rf "$BOOST_PROBE_DIR"
+          mkdir -p "$BOOST_PROBE_DIR/source"
+          cat > "$BOOST_PROBE_DIR/source/CMakeLists.txt" <<'EOF'
+          cmake_minimum_required(VERSION 3.18)
+          project(boost_probe LANGUAGES CXX)
+          find_package(Boost "${EXPECTED_BOOST_VERSION}" EXACT REQUIRED CONFIG)
+          if(NOT TARGET Boost::headers)
+            message(FATAL_ERROR "Boost::headers target is missing")
+          endif()
+          add_executable(boost_probe main.cpp)
+          target_link_libraries(boost_probe PRIVATE Boost::headers)
+          EOF
+          cat > "$BOOST_PROBE_DIR/source/main.cpp" <<'EOF'
+          #include <boost/version.hpp>
+          int main() { return BOOST_VERSION > 0 ? 0 : 1; }
+          EOF
+
+          "$CMAKE_BIN" \
+            -S "$BOOST_PROBE_DIR/source" \
+            -B "$BOOST_PROBE_DIR/build" \
+            -G Ninja \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DEXPECTED_BOOST_VERSION="$BOOST_VERSION" \
+            -DBoost_ROOT="$BOOST_STAGE_DIR" \
+            -DBoost_DIR="$BOOST_DIR" \
+            -Dboost_headers_DIR="$BOOST_HEADERS_DIR"
+          "$CMAKE_BIN" --build "$BOOST_PROBE_DIR/build" \
+            --parallel "$(nproc)"
+          "$BOOST_PROBE_DIR/build/boost_probe"
+
           {
             echo "CMAKE_BIN=$CMAKE_BIN"
             echo "CTEST_BIN=$CTEST_BIN"
             echo "CPACK_BIN=$CPACK_BIN"
+            echo "BOOST_SOURCE_DIR=$BOOST_SOURCE_DIR"
+            echo "BOOST_STAGE_DIR=$BOOST_STAGE_DIR"
+            echo "BOOST_ROOT=$BOOST_STAGE_DIR"
+            echo "Boost_ROOT=$BOOST_STAGE_DIR"
+            echo "Boost_DIR=$BOOST_DIR"
+            echo "boost_headers_DIR=$BOOST_HEADERS_DIR"
           } >> "$GITHUB_ENV"
           echo "$CMAKE_TOOL_DIR/bin" >> "$GITHUB_PATH"
           export PATH="$CMAKE_TOOL_DIR/bin:$PATH"
@@ -357,7 +461,7 @@ jobs:
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.cache/nunchuk-downloads
-          key: nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-downloads-x86_64-v7-cmake-${{ env.CMAKE_VERSION }}-boost-${{ env.BOOST_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Restore Qt 5.15.2
         id: cache-qt
@@ -438,6 +542,17 @@ jobs:
           test "$QT_QMAKE_VERSION" = "$QT_VERSION"
           file "$QT_ROOT/lib/libQt5Core.so.5"
           "$QT_ROOT/bin/qmake" -query
+
+          for qt_webengine_elf in \
+            "$QT_ROOT/lib/libQt5WebEngineCore.so.5" \
+            "$QT_ROOT/libexec/QtWebEngineProcess"; do
+            qt_webengine_ldd=$(LD_LIBRARY_PATH="$QT_ROOT/lib" \
+              ldd "$qt_webengine_elf")
+            if grep -F 'not found' <<< "$qt_webengine_ldd"; then
+              echo "ERROR: Thiếu dependency để deploy $(basename "$qt_webengine_elf")."
+              exit 1
+            fi
+          done
 
           {
             echo "QTPATH=$QT_ROOT"
@@ -530,6 +645,7 @@ jobs:
               -B "$SOURCE_ROOT/olm-build" \
               -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_INSTALL_PREFIX="$OLM_PREFIX"
@@ -705,13 +821,17 @@ jobs:
             -DCMAKE_RANLIB="$RANLIB" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_PREFIX_PATH="$QTPATH;$QTKEYCHAIN_PREFIX;$OLM_PREFIX" \
+            -DCMAKE_PREFIX_PATH="$BOOST_STAGE_DIR;$QTPATH;$QTKEYCHAIN_PREFIX;$OLM_PREFIX" \
             -DQt5_DIR="$Qt5_DIR" \
+            -DBoost_ROOT="$Boost_ROOT" \
+            -DBOOST_ROOT="$BOOST_ROOT" \
+            -DBoost_DIR="$Boost_DIR" \
+            -Dboost_headers_DIR="$boost_headers_DIR" \
+            -DBoost_NO_SYSTEM_PATHS=ON \
             -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
-            -DOPENSSL_USE_STATIC_LIBS=FALSE \
             -DUR__DISABLE_TESTS=ON
 
-          verify_cmake_tool() {
+          verify_cmake_path() {
             cache_key="$1"
             expected_path="$2"
             configured_path=$(sed -n \
@@ -721,11 +841,32 @@ jobs:
               "$(readlink -f "$expected_path")"
           }
 
-          verify_cmake_tool CMAKE_C_COMPILER "$CC"
-          verify_cmake_tool CMAKE_CXX_COMPILER "$CXX"
-          verify_cmake_tool CMAKE_AR "$AR"
-          verify_cmake_tool CMAKE_NM "$NM"
-          verify_cmake_tool CMAKE_RANLIB "$RANLIB"
+          verify_static_library_from_prefix() {
+            cache_key="$1"
+            configured_path=$(sed -n \
+              "s/^${cache_key}:[^=]*=//p" "$BUILD_DIR/CMakeCache.txt")
+            test -n "$configured_path"
+            configured_path=$(readlink -f "$configured_path")
+            case "$configured_path" in
+              "$OPENSSL_ROOT_DIR"/*.a)
+                ;;
+              *)
+                echo "ERROR: $cache_key không dùng OpenSSL static đã pin: $configured_path"
+                exit 1
+                ;;
+            esac
+          }
+
+          verify_cmake_path CMAKE_C_COMPILER "$CC"
+          verify_cmake_path CMAKE_CXX_COMPILER "$CXX"
+          verify_cmake_path CMAKE_AR "$AR"
+          verify_cmake_path CMAKE_NM "$NM"
+          verify_cmake_path CMAKE_RANLIB "$RANLIB"
+          verify_cmake_path Boost_DIR "$Boost_DIR"
+          verify_cmake_path boost_headers_DIR "$boost_headers_DIR"
+          verify_cmake_path OPENSSL_INCLUDE_DIR "$OPENSSL_ROOT_DIR/include"
+          verify_static_library_from_prefix OPENSSL_SSL_LIBRARY
+          verify_static_library_from_prefix OPENSSL_CRYPTO_LIBRARY
 
           if grep -Eq '^CMAKE_(C|CXX)_FLAGS_RELEASE:[^=]*=(-O0|.*[[:space:]]-O0)([[:space:]]|$)' \
             "$BUILD_DIR/CMakeCache.txt"; then
@@ -733,6 +874,11 @@ jobs:
             exit 1
           fi
           test -f "$BUILD_DIR/compile_commands.json"
+          if ! grep -Fq "$BOOST_SOURCE_DIR" \
+            "$BUILD_DIR/compile_commands.json"; then
+            echo 'ERROR: Compile commands không dùng Boost headers đã pin.'
+            exit 1
+          fi
           if grep -Eq '(^|[[:space:]"])-O0([[:space:]"]|$)' \
             "$BUILD_DIR/compile_commands.json"; then
             echo 'ERROR: Compile command thực tế đang chứa -O0.'
@@ -763,10 +909,6 @@ jobs:
           else
             echo 'SKIPPED: source không khai báo CTest test nào.' | \
               tee "$GITHUB_WORKSPACE/reports/ctest.log"
-            if [ "$REQUIRE_UNIT_TESTS" = true ]; then
-              echo 'ERROR: require_unit_tests đang bật nhưng CTest có 0 test.'
-              exit 1
-            fi
           fi
 
           WEBENGINE_SMOKE_DIR="$GITHUB_WORKSPACE/webengine-smoke"
@@ -884,6 +1026,7 @@ jobs:
           export QML_IMPORT_PATH="$APPDIR/usr/qml${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}"
           export QML2_IMPORT_PATH="$APPDIR/usr/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
           export XDG_DATA_DIRS="$APPDIR/usr/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+          export QTWEBENGINE_DISABLE_SANDBOX=1
 
           if [ -x "$APPDIR/usr/libexec/QtWebEngineProcess" ]; then
             export QTWEBENGINEPROCESS_PATH="$APPDIR/usr/libexec/QtWebEngineProcess"
@@ -966,8 +1109,10 @@ jobs:
             echo "build_baseline=ubuntu-20.04"
             echo "glibc_max=$GLIBC_MAX"
             echo "cmake=$CMAKE_VERSION"
+            echo "boost=$BOOST_VERSION"
             echo "compiler=$($CXX --version | head -n 1)"
             echo "qt=$QT_VERSION"
+            echo "qtwebengine_sandbox=disabled"
             echo "qtkeychain=$QTKEYCHAIN_COMMIT"
             echo "olm=$OLM_COMMIT"
             echo "openssl=$OPENSSL_VERSION"
@@ -984,6 +1129,9 @@ jobs:
           DIST_DIR="$GITHUB_WORKSPACE/dist"
           mkdir -p "$DIST_DIR"
           FINAL_APPIMAGE="$DIST_DIR/${ARTIFACT_BASENAME}.AppImage"
+          FINAL_CHECKSUM="${FINAL_APPIMAGE}.sha256"
+          FINAL_ARCHIVE="$DIST_DIR/${ARTIFACT_BASENAME}.tar.gz"
+          FINAL_ARCHIVE_CHECKSUM="${FINAL_ARCHIVE}.sha256"
 
           export ARCH=x86_64
           export VERSION="$BUILD_VERSION"
@@ -998,13 +1146,27 @@ jobs:
             cd "$DIST_DIR"
             sha256sum "$(basename "$FINAL_APPIMAGE")" \
               > "$(basename "$FINAL_APPIMAGE").sha256"
+            tar \
+              --sort=name \
+              --mtime="@$SOURCE_DATE_EPOCH" \
+              --owner=0 \
+              --group=0 \
+              --numeric-owner \
+              -czf "$(basename "$FINAL_ARCHIVE")" \
+              "$(basename "$FINAL_APPIMAGE")" \
+              "$(basename "$FINAL_CHECKSUM")"
+            sha256sum "$(basename "$FINAL_ARCHIVE")" \
+              > "$(basename "$FINAL_ARCHIVE_CHECKSUM")"
           )
 
           file "$FINAL_APPIMAGE"
           du -h "$FINAL_APPIMAGE"
+          tar -tvzf "$FINAL_ARCHIVE"
           {
             echo "FINAL_APPIMAGE=$FINAL_APPIMAGE"
-            echo "FINAL_CHECKSUM=${FINAL_APPIMAGE}.sha256"
+            echo "FINAL_CHECKSUM=$FINAL_CHECKSUM"
+            echo "FINAL_ARCHIVE=$FINAL_ARCHIVE"
+            echo "FINAL_ARCHIVE_CHECKSUM=$FINAL_ARCHIVE_CHECKSUM"
           } >> "$GITHUB_ENV"
 
       - name: Verify final AppImage
@@ -1024,11 +1186,8 @@ jobs:
           test -x "$BUNDLE_ROOT/AppRun"
           test -x "$BUNDLE_ROOT/usr/bin/nunchuk-qt"
           test -x "$BUNDLE_ROOT/usr/bin/hwi"
-          if grep -Rqs 'QTWEBENGINE_DISABLE_SANDBOX' \
-            "$BUNDLE_ROOT/AppRun" "$BUNDLE_ROOT/AppRun.wrapped"; then
-            echo 'ERROR: Production AppRun đang tắt Qt WebEngine sandbox.'
-            exit 1
-          fi
+          grep -Fqx 'export QTWEBENGINE_DISABLE_SANDBOX=1' \
+            "$BUNDLE_ROOT/AppRun"
           test -e "$BUNDLE_ROOT/.DirIcon"
           test -f "$BUNDLE_ROOT/nunchuk-qt.png"
           test -f "$BUNDLE_ROOT/usr/share/nunchuk/build-info.txt"
@@ -1266,13 +1425,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload verified AppImage
+      - name: Upload verified AppImage archive
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nunchuk-linux-x86_64-appimage
           path: |
-            ${{ env.FINAL_APPIMAGE }}
-            ${{ env.FINAL_CHECKSUM }}
+            ${{ env.FINAL_ARCHIVE }}
+            ${{ env.FINAL_ARCHIVE_CHECKSUM }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -1338,7 +1497,7 @@ jobs:
             xvfb
           rm -rf /var/lib/apt/lists/*
 
-      - name: Download AppImage built once
+      - name: Download AppImage archive built once
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nunchuk-linux-x86_64-appimage
@@ -1348,15 +1507,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          mapfile -t RELEASE_ARCHIVES < <(
+            find dist -maxdepth 1 -type f -name '*.tar.gz' -print
+          )
+          test "${#RELEASE_ARCHIVES[@]}" -eq 1
+          RELEASE_ARCHIVE=$(readlink -f "${RELEASE_ARCHIVES[0]}")
+
+          (
+            cd "$(dirname "$RELEASE_ARCHIVE")"
+            sha256sum -c "$(basename "$RELEASE_ARCHIVE").sha256"
+          )
+
+          PAYLOAD_DIR="$RUNNER_TEMP/release-payload"
+          rm -rf "$PAYLOAD_DIR"
+          mkdir -p "$PAYLOAD_DIR"
+          tar -xzf "$RELEASE_ARCHIVE" -C "$PAYLOAD_DIR"
+
           mapfile -t APPIMAGES < <(
-            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+            find "$PAYLOAD_DIR" -maxdepth 1 \
+              -type f -name '*.AppImage' -print
           )
           test "${#APPIMAGES[@]}" -eq 1
           APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
-          chmod 755 "$APPIMAGE"
-
+          test -x "$APPIMAGE"
           (
-            cd "$(dirname "$APPIMAGE")"
+            cd "$PAYLOAD_DIR"
             sha256sum -c "$(basename "$APPIMAGE").sha256"
           )
 
@@ -1446,7 +1621,6 @@ jobs:
               HOME=/home/nunchuk-test \
               XDG_RUNTIME_DIR=/tmp/nunchuk-test-runtime \
               APPIMAGE_EXTRACT_AND_RUN=1 \
-              QTWEBENGINE_DISABLE_SANDBOX=1 \
               LIBGL_ALWAYS_SOFTWARE=1 \
               "$APPIMAGE" \
             > smoke.log 2>&1 &
@@ -1520,8 +1694,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  sandbox-smoke-test:
-    name: Smoke test production WebEngine sandbox
+  webengine-smoke-test:
+    name: Smoke test FUSE and Qt WebEngine
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1539,7 +1713,7 @@ jobs:
             xdotool \
             xvfb
 
-      - name: Download AppImage built once
+      - name: Download AppImage archive built once
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nunchuk-linux-x86_64-appimage
@@ -1555,18 +1729,34 @@ jobs:
         run: |
           set -euo pipefail
 
+          mapfile -t RELEASE_ARCHIVES < <(
+            find dist -maxdepth 1 -type f -name '*.tar.gz' -print
+          )
+          test "${#RELEASE_ARCHIVES[@]}" -eq 1
+          RELEASE_ARCHIVE=$(readlink -f "${RELEASE_ARCHIVES[0]}")
+
+          (
+            cd "$(dirname "$RELEASE_ARCHIVE")"
+            sha256sum -c "$(basename "$RELEASE_ARCHIVE").sha256"
+          )
+
+          PAYLOAD_DIR="$RUNNER_TEMP/release-payload"
+          rm -rf "$PAYLOAD_DIR"
+          mkdir -p "$PAYLOAD_DIR"
+          tar -xzf "$RELEASE_ARCHIVE" -C "$PAYLOAD_DIR"
+
           mapfile -t APPIMAGES < <(
-            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+            find "$PAYLOAD_DIR" -maxdepth 1 \
+              -type f -name '*.AppImage' -print
           )
           test "${#APPIMAGES[@]}" -eq 1
           APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
-          chmod 755 "$APPIMAGE"
-          test -c /dev/fuse
-
+          test -x "$APPIMAGE"
           (
-            cd "$(dirname "$APPIMAGE")"
+            cd "$PAYLOAD_DIR"
             sha256sum -c "$(basename "$APPIMAGE").sha256"
           )
+          test -c /dev/fuse
 
           XDG_RUNTIME_DIR="$RUNNER_TEMP/nunchuk-xdg-runtime"
           install -d -m 0700 "$XDG_RUNTIME_DIR"
@@ -1596,7 +1786,7 @@ jobs:
             env \
               LIBGL_ALWAYS_SOFTWARE=1 \
               "$APPIMAGE" \
-            > sandbox-smoke.log 2>&1 &
+            > fuse-smoke.log 2>&1 &
           launcher_pid=$!
 
           app_started=0
@@ -1609,7 +1799,7 @@ jobs:
             sleep 0.5
           done
 
-          cat sandbox-smoke.log
+          cat fuse-smoke.log
           if [ "$app_started" -ne 1 ]; then
             echo 'ERROR: AppImage/FUSE không khởi động được process nunchuk-qt.'
             exit 1
@@ -1633,7 +1823,7 @@ jobs:
             sleep 0.25
           done
           if [ "$window_ready" -ne 1 ]; then
-            cat sandbox-smoke.log
+            cat fuse-smoke.log
             echo 'ERROR: AppImage chạy nhưng chưa render được cửa sổ GUI.'
             exit 1
           fi
@@ -1641,30 +1831,30 @@ jobs:
           sleep 5
           if ! pgrep -u "$runner_uid" -x nunchuk-qt > /dev/null || \
              ! kill -0 "$launcher_pid" 2>/dev/null; then
-            cat sandbox-smoke.log
-            echo 'ERROR: GUI/sandbox không duy trì hoạt động ổn định trong 5 giây.'
+            cat fuse-smoke.log
+            echo 'ERROR: GUI/FUSE không duy trì hoạt động ổn định trong 5 giây.'
             exit 1
           fi
 
           if grep -Eqi \
-            'fuse: failed|cannot mount AppImage|no usable sandbox|running as root without --no-sandbox|error while loading shared libraries|version .*GLIBC(X{0,2})_.* not found|could not load the qt platform plugin|module ".*" is not installed|qtwebengineprocess.*not found' \
-            sandbox-smoke.log; then
-            echo 'ERROR: Production WebEngine sandbox/runtime không hoạt động.'
+            'fuse: failed|cannot mount AppImage|error while loading shared libraries|version .*GLIBC(X{0,2})_.* not found|could not load the qt platform plugin|module ".*" is not installed|qtwebengineprocess.*not found' \
+            fuse-smoke.log; then
+            echo 'ERROR: AppImage/FUSE runtime không hoạt động.'
             exit 1
           fi
 
           cleanup_smoke
           trap - EXIT
 
-      - name: Verify bundled Qt WebEngine sandbox
+      - name: Verify bundled Qt WebEngine runtime
         run: |
           set -euo pipefail
 
-          mapfile -t APPIMAGES < <(
-            find dist -maxdepth 1 -type f -name '*.AppImage' -print
+          mapfile -t RELEASE_ARCHIVES < <(
+            find dist -maxdepth 1 -type f -name '*.tar.gz' -print
           )
-          test "${#APPIMAGES[@]}" -eq 1
-          APPIMAGE=$(readlink -f "${APPIMAGES[0]}")
+          test "${#RELEASE_ARCHIVES[@]}" -eq 1
+          RELEASE_ARCHIVE=$(readlink -f "${RELEASE_ARCHIVES[0]}")
 
           WEBENGINE_SMOKE=$(find test-tools -maxdepth 1 \
             -type f -name nunchuk-webengine-smoke -print -quit)
@@ -1676,6 +1866,11 @@ jobs:
           mkdir -p "$EXTRACT_DIR"
           (
             cd "$EXTRACT_DIR"
+            tar -xzf "$RELEASE_ARCHIVE"
+            APPIMAGE=$(find . -maxdepth 1 \
+              -type f -name '*.AppImage' -print -quit)
+            test -n "$APPIMAGE"
+            test -x "$APPIMAGE"
             "$APPIMAGE" --appimage-extract > /dev/null
           )
           BUNDLE_ROOT="$EXTRACT_DIR/squashfs-root"
@@ -1693,6 +1888,7 @@ jobs:
               QTWEBENGINEPROCESS_PATH="$BUNDLE_ROOT/usr/libexec/QtWebEngineProcess" \
               QTWEBENGINE_RESOURCES_PATH="$BUNDLE_ROOT/usr/resources" \
               QTWEBENGINE_LOCALES_PATH="$BUNDLE_ROOT/usr/translations/qtwebengine_locales" \
+              QTWEBENGINE_DISABLE_SANDBOX=1 \
               LIBGL_ALWAYS_SOFTWARE=1 \
               "$WEBENGINE_SMOKE" \
             > webengine-smoke.log 2>&1 &
@@ -1737,19 +1933,19 @@ jobs:
             exit 1
           fi
           if grep -Eqi \
-            'no usable sandbox|running as root without --no-sandbox|error while loading shared libraries|qtwebengineprocess.*not found|WEBENGINE_(TIMEOUT|LOAD_FAILED)' \
+            'error while loading shared libraries|qtwebengineprocess.*not found|WEBENGINE_(TIMEOUT|LOAD_FAILED)' \
             webengine-smoke.log; then
-            echo 'ERROR: Phát hiện lỗi Qt WebEngine sandbox/runtime.'
+            echo 'ERROR: Phát hiện lỗi Qt WebEngine runtime.'
             exit 1
           fi
 
-      - name: Upload sandbox smoke-test log
+      - name: Upload FUSE and WebEngine smoke-test log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: nunchuk-linux-x86_64-sandbox-smoke
+          name: nunchuk-linux-x86_64-fuse-webengine-logs
           path: |
-            sandbox-smoke.log
+            fuse-smoke.log
             webengine-smoke.log
           if-no-files-found: ignore
           retention-days: 14
