@@ -36,6 +36,8 @@ concurrency:
 env:
   QT_VERSION: '5.15.2'
   AQT_VERSION: '3.1.18'
+  CMAKE_VERSION: '3.31.12'
+  CMAKE_SHA256: 0dc2e9a6860f06bf10bd8fadc03e35d9eeb4df46e33763a7e480e987758f385c
   COMPILER_MAJOR: '13'
   QTKEYCHAIN_VERSION: '0.15.0'
   QTKEYCHAIN_COMMIT: ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
@@ -138,7 +140,6 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential \
             ccache \
-            cmake \
             dbus-x11 \
             desktop-file-utils \
             file \
@@ -214,10 +215,10 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.cache/nunchuk-downloads
-          key: nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-lookup-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-
-            nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}
+            nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-
+            nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}
 
       - name: Download and verify tools and assets
         run: |
@@ -249,6 +250,11 @@ jobs:
 
             echo "$expected_sha256  $destination" | sha256sum -c -
           }
+
+          download_verified \
+            "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
+            "$DOWNLOAD_DIR/cmake.tar.gz" \
+            "$CMAKE_SHA256"
 
           download_verified \
             "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-x86_64.AppImage" \
@@ -308,6 +314,42 @@ jobs:
             exit 1
           fi
 
+          CMAKE_TOOL_DIR="$RUNNER_TEMP/cmake-$CMAKE_VERSION"
+          test -n "$RUNNER_TEMP"
+          rm -rf "$CMAKE_TOOL_DIR"
+          mkdir -p "$CMAKE_TOOL_DIR"
+          tar -xzf "$DOWNLOAD_DIR/cmake.tar.gz" \
+            -C "$CMAKE_TOOL_DIR" \
+            --no-same-owner \
+            --strip-components=1
+
+          CMAKE_BIN="$CMAKE_TOOL_DIR/bin/cmake"
+          CTEST_BIN="$CMAKE_TOOL_DIR/bin/ctest"
+          CPACK_BIN="$CMAKE_TOOL_DIR/bin/cpack"
+          for tool in "$CMAKE_BIN" "$CTEST_BIN" "$CPACK_BIN"; do
+            test -x "$tool"
+            file "$tool" | grep -E 'ELF 64-bit.*x86-64'
+          done
+
+          CMAKE_ACTUAL_VERSION=$("$CMAKE_BIN" --version | \
+            awk 'NR == 1 { print $3 }')
+          CTEST_ACTUAL_VERSION=$("$CTEST_BIN" --version | \
+            awk 'NR == 1 { print $3 }')
+          test "$CMAKE_ACTUAL_VERSION" = "$CMAKE_VERSION"
+          test "$CTEST_ACTUAL_VERSION" = "$CMAKE_VERSION"
+          "$CMAKE_BIN" -E capabilities > /dev/null
+
+          {
+            echo "CMAKE_BIN=$CMAKE_BIN"
+            echo "CTEST_BIN=$CTEST_BIN"
+            echo "CPACK_BIN=$CPACK_BIN"
+          } >> "$GITHUB_ENV"
+          echo "$CMAKE_TOOL_DIR/bin" >> "$GITHUB_PATH"
+          export PATH="$CMAKE_TOOL_DIR/bin:$PATH"
+          test "$(command -v cmake)" = "$CMAKE_BIN"
+          test "$(command -v ctest)" = "$CTEST_BIN"
+          "$CMAKE_BIN" --version
+
           echo "SAVE_DOWNLOAD_CACHE=$DOWNLOADS_CHANGED" >> "$GITHUB_ENV"
 
       - name: Save repaired downloads
@@ -315,7 +357,7 @@ jobs:
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.cache/nunchuk-downloads
-          key: nunchuk-downloads-x86_64-v5-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-downloads-x86_64-v6-cmake-${{ env.CMAKE_VERSION }}-${{ env.LINUXDEPLOY_VERSION }}-${{ env.LINUXDEPLOY_QT_VERSION }}-${{ env.APPIMAGETOOL_VERSION }}-${{ env.APPIMAGE_RUNTIME_VERSION }}-${{ env.HWI_VERSION }}-${{ env.OPENSSL_VERSION }}-repaired-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Restore Qt 5.15.2
         id: cache-qt
@@ -414,10 +456,10 @@ jobs:
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.local/nunchuk-deps
-          key: nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-lookup-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-deps-focal-x86_64-cmake-${{ env.CMAKE_VERSION }}-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v5-lookup-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-repaired-
-            nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4
+            nunchuk-deps-focal-x86_64-cmake-${{ env.CMAKE_VERSION }}-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v5-repaired-
+            nunchuk-deps-focal-x86_64-cmake-${{ env.CMAKE_VERSION }}-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v5
 
       - name: Build and verify cached dependencies
         run: |
@@ -427,7 +469,7 @@ jobs:
           QTKEYCHAIN_PREFIX="$DEPS_ROOT/qtkeychain"
           OLM_PREFIX="$DEPS_ROOT/olm"
           OPENSSL_PREFIX="$DEPS_ROOT/openssl"
-          EXPECTED_STAMP="gcc=$GCC_VERSION;qt=$QT_VERSION;qtkeychain=$QTKEYCHAIN_COMMIT;olm=$OLM_COMMIT;openssl=$OPENSSL_VERSION;shared=1"
+          EXPECTED_STAMP="cmake=$CMAKE_VERSION;gcc=$GCC_VERSION;qt=$QT_VERSION;qtkeychain=$QTKEYCHAIN_COMMIT;olm=$OLM_COMMIT;openssl=$OPENSSL_VERSION;shared=1"
 
           dependencies_are_valid() {
             local cached_crypto cached_library cached_olm cached_qtkeychain cached_ssl
@@ -462,7 +504,7 @@ jobs:
               "$SOURCE_ROOT/qtkeychain"
             test "$(git -C "$SOURCE_ROOT/qtkeychain" rev-parse HEAD)" = \
               "$QTKEYCHAIN_COMMIT"
-            cmake \
+            "$CMAKE_BIN" \
               -S "$SOURCE_ROOT/qtkeychain" \
               -B "$SOURCE_ROOT/qtkeychain-build" \
               -G Ninja \
@@ -475,15 +517,15 @@ jobs:
               -DCMAKE_PREFIX_PATH="$QTPATH" \
               -DCMAKE_INSTALL_PREFIX="$QTKEYCHAIN_PREFIX" \
               -DQt5_DIR="$Qt5_DIR"
-            cmake --build "$SOURCE_ROOT/qtkeychain-build" \
+            "$CMAKE_BIN" --build "$SOURCE_ROOT/qtkeychain-build" \
               --parallel "$(nproc)"
-            cmake --install "$SOURCE_ROOT/qtkeychain-build"
+            "$CMAKE_BIN" --install "$SOURCE_ROOT/qtkeychain-build"
 
             git clone --depth 1 --branch "$OLM_VERSION" \
               https://gitlab.matrix.org/matrix-org/olm.git \
               "$SOURCE_ROOT/olm"
             test "$(git -C "$SOURCE_ROOT/olm" rev-parse HEAD)" = "$OLM_COMMIT"
-            cmake \
+            "$CMAKE_BIN" \
               -S "$SOURCE_ROOT/olm" \
               -B "$SOURCE_ROOT/olm-build" \
               -G Ninja \
@@ -491,9 +533,9 @@ jobs:
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_INSTALL_PREFIX="$OLM_PREFIX"
-            cmake --build "$SOURCE_ROOT/olm-build" \
+            "$CMAKE_BIN" --build "$SOURCE_ROOT/olm-build" \
               --parallel "$(nproc)"
-            cmake --install "$SOURCE_ROOT/olm-build"
+            "$CMAKE_BIN" --install "$SOURCE_ROOT/olm-build"
 
             mkdir -p "$SOURCE_ROOT/openssl"
             tar -xzf "$HOME/.cache/nunchuk-downloads/openssl.tar.gz" \
@@ -558,7 +600,7 @@ jobs:
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: ~/.local/nunchuk-deps
-          key: nunchuk-deps-focal-x86_64-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v4-repaired-${{ github.run_id }}-${{ github.run_attempt }}
+          key: nunchuk-deps-focal-x86_64-cmake-${{ env.CMAKE_VERSION }}-gcc-${{ env.GCC_VERSION }}-qt-${{ env.QT_VERSION }}-qtkeychain-${{ env.QTKEYCHAIN_COMMIT }}-olm-${{ env.OLM_COMMIT }}-openssl-${{ env.OPENSSL_VERSION }}-v5-repaired-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Restore compiler cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -650,7 +692,7 @@ jobs:
           export LD_LIBRARY_PATH="$DEPS_LIBRARY_PATH:$QTPATH/lib"
           export PKG_CONFIG_PATH="$OPENSSL_ROOT_DIR/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
-          cmake \
+          "$CMAKE_BIN" \
             -S "$SOURCE_DIR" \
             -B "$BUILD_DIR" \
             -G Ninja \
@@ -697,10 +739,10 @@ jobs:
             exit 1
           fi
 
-          cmake --build "$BUILD_DIR" --parallel "$(nproc)"
+          "$CMAKE_BIN" --build "$BUILD_DIR" --parallel "$(nproc)"
           mkdir -p "$GITHUB_WORKSPACE/reports"
 
-          CTEST_DISCOVERY=$(cd "$BUILD_DIR" && ctest -N)
+          CTEST_DISCOVERY=$(cd "$BUILD_DIR" && "$CTEST_BIN" -N)
           printf '%s\n' "$CTEST_DISCOVERY" | \
             tee "$GITHUB_WORKSPACE/reports/ctest-discovery.log"
           CTEST_COUNT=$(sed -n \
@@ -716,7 +758,7 @@ jobs:
           if [ "$CTEST_COUNT" -gt 0 ]; then
             (
               cd "$BUILD_DIR"
-              ctest --output-on-failure --parallel "$(nproc)"
+              "$CTEST_BIN" --output-on-failure --parallel "$(nproc)"
             ) | tee "$GITHUB_WORKSPACE/reports/ctest.log"
           else
             echo 'SKIPPED: source không khai báo CTest test nào.' | \
@@ -923,6 +965,7 @@ jobs:
             echo "build_timestamp_utc=$BUILD_TIMESTAMP"
             echo "build_baseline=ubuntu-20.04"
             echo "glibc_max=$GLIBC_MAX"
+            echo "cmake=$CMAKE_VERSION"
             echo "compiler=$($CXX --version | head -n 1)"
             echo "qt=$QT_VERSION"
             echo "qtkeychain=$QTKEYCHAIN_COMMIT"
