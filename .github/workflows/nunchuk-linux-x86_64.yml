@@ -580,6 +580,10 @@ jobs:
                 [[ "$arrow" == "=>" ]] || continue
 
                 if [[ "$resolved" == "not" ]]; then
+                  if is_excluded_runtime "$soname"; then
+                    echo "Host runtime not bundled: $soname (required by optional ELF $elf)"
+                    continue
+                  fi
                   die "Thiếu dependency $soname khi scan $elf"
                 fi
                 [[ -f "$resolved" ]] || die "Dependency không tồn tại: $resolved"
@@ -731,6 +735,11 @@ jobs:
                 [[ "$arrow" == "=>" ]] || continue
 
                 if [[ "$resolved" == "not" ]]; then
+                  if is_excluded_runtime "$soname"; then
+                    printf '%s -> host runtime (not present on CI runner)\n' \
+                      "$soname" >> "$report"
+                    continue
+                  fi
                   echo "::error::$elf thiếu $soname" >&2
                   failures=$((failures + 1))
                   continue
