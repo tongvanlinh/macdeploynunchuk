@@ -303,10 +303,15 @@ jobs:
               ;;
           esac
 
-          # Runtime dependencies of Qt's required xcb platform plugin.
+          # Runtime dependencies of the retained Qt XCB, multimedia and
+          # WebEngine backends.
           # This runs after compilation, so it does not change the build.
           sudo apt-get install -y --no-install-recommends \
             libegl1 \
+            libgstreamer1.0-0 \
+            libgstreamer-plugins-base1.0-0 \
+            libgstreamer-plugins-bad1.0-0 \
+            libnss3 \
             libx11-xcb1 \
             libxcb-cursor0 \
             libxcb-glx0 \
@@ -390,19 +395,60 @@ jobs:
             exit 1
           }
 
-          # Nunchuk dùng xcb. CQtDeployer kéo thêm các plugin Wayland/eglfs
-          # không được ứng dụng sử dụng, nhưng dependency scanner vẫn quét chúng.
-          find "$PLATFORM_DIR" -maxdepth 1 \
-            \( -type f -o -type l \) \
-            -name 'libq*.so' ! -name 'libqxcb.so' -print -delete
-          for optional_qt_dir in \
-            "$APPDIR/plugins/egldeviceintegrations" \
-            "$APPDIR/plugins"/wayland-* \
-            "$APPDIR/qml/QtWayland"; do
-            [[ -e "$optional_qt_dir" || -L "$optional_qt_dir" ]] || continue
-            echo "Removing unused Qt plugin tree: $optional_qt_dir"
-            rm -rf -- "$optional_qt_dir"
+          # CQtDeployer copy cả backend của module đã phát hiện. Chỉ giữ tập
+          # runtime Nunchuk thực sự dùng để dependency closure không quét plugin
+          # SQL/Wayland/GTK/thiết bị tùy chọn.
+          while IFS= read -r -d '' qt_plugin; do
+            relative_plugin="${qt_plugin#"$APPDIR/plugins/"}"
+            case "$relative_plugin" in
+              platforms/libqxcb.so|\
+              xcbglintegrations/libqxcb-egl-integration.so|\
+              xcbglintegrations/libqxcb-glx-integration.so|\
+              imageformats/libqjpeg.so|\
+              imageformats/libqsvg.so|\
+              iconengines/libqsvgicon.so|\
+              mediaservice/libgstcamerabin.so|\
+              mediaservice/libgstmediaplayer.so|\
+              mediaservice/libgstaudiodecoder.so|\
+              audio/libqtaudio_alsa.so|\
+              audio/libqtmedia_pulse.so|\
+              playlistformats/libqtmultimedia_m3u.so|\
+              sqldrivers/libqsqlite.so|\
+              bearer/libqgenericbearer.so|\
+              platforminputcontexts/libcomposeplatforminputcontextplugin.so|\
+              platforminputcontexts/libibusplatforminputcontextplugin.so|\
+              platforminputcontexts/libqtvirtualkeyboardplugin.so)
+                ;;
+              *)
+                echo "Removing unused Qt plugin: $relative_plugin"
+                rm -f -- "$qt_plugin"
+                ;;
+            esac
+          done < <(
+            find "$APPDIR/plugins" \
+              \( -type f -o -type l \) -name '*.so*' -print0
+          )
+
+          for required_qt_plugin in \
+            platforms/libqxcb.so \
+            imageformats/libqjpeg.so \
+            imageformats/libqsvg.so \
+            iconengines/libqsvgicon.so \
+            mediaservice/libgstcamerabin.so \
+            sqldrivers/libqsqlite.so; do
+            test -f "$APPDIR/plugins/$required_qt_plugin" || {
+              echo "::error::Thiếu Qt plugin bắt buộc: $required_qt_plugin"
+              exit 1
+            }
           done
+
+          (
+            cd "$APPDIR/plugins"
+            find . \( -type f -o -type l \) -name '*.so*' \
+              -printf '%P\n' | LC_ALL=C sort
+          ) > "$APPDIR/qt-plugin-manifest.txt"
+
+          rm -rf -- "$APPDIR/qml/QtWayland"
           find "$APPDIR/lib" "$APPDIR/bin" -maxdepth 1 \
             \( -type f -o -type l \) \
             -name 'libQt5Wayland*.so*' -print -delete
@@ -675,6 +721,7 @@ jobs:
             local symbols_file
             local max_glibc max_glibcxx
             local entry
+            local actual_qt_plugins expected_qt_plugins
 
             canonical_appdir="$(readlink -f -- "$appdir")"
             symbols_file="$(mktemp)"
@@ -688,6 +735,7 @@ jobs:
               "$appdir/resources/qtwebengine_resources.pak" \
               "$appdir/resources/qtwebengine_resources_100p.pak" \
               "$appdir/resources/qtwebengine_resources_200p.pak" \
+              "$appdir/qt-plugin-manifest.txt" \
               "$appdir/nunchuk.desktop" \
               "$appdir/nunchuk-qt.png"; do
               if [[ ! -e "$required" ]]; then
@@ -722,6 +770,19 @@ jobs:
               echo "::error::Thiếu Qt xcb platform plugin" >&2
               failures=$((failures + 1))
             }
+            actual_qt_plugins=""
+            if [[ -d "$appdir/plugins" ]]; then
+              actual_qt_plugins="$({
+                cd "$appdir/plugins"
+                find . \( -type f -o -type l \) -name '*.so*' \
+                  -printf '%P\n' | LC_ALL=C sort
+              })"
+            fi
+            expected_qt_plugins="$(cat "$appdir/qt-plugin-manifest.txt" 2>/dev/null || true)"
+            if [[ "$actual_qt_plugins" != "$expected_qt_plugins" ]]; then
+              echo "::error::Qt plugin set khác manifest deploy" >&2
+              failures=$((failures + 1))
+            fi
             for nss_pattern in \
               'libsoftokn3.so' \
               'libsoftokn3.chk' \
