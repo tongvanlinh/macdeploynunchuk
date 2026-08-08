@@ -389,8 +389,23 @@ jobs:
             echo "::error::CQtDeployer không tạo xcb platform plugin"
             exit 1
           }
-          find "$PLATFORM_DIR" -maxdepth 1 -type f -name 'libq*.so' \
-            ! -name 'libqxcb.so' -delete
+
+          # Nunchuk dùng xcb. CQtDeployer kéo thêm các plugin Wayland/eglfs
+          # không được ứng dụng sử dụng, nhưng dependency scanner vẫn quét chúng.
+          find "$PLATFORM_DIR" -maxdepth 1 \
+            \( -type f -o -type l \) \
+            -name 'libq*.so' ! -name 'libqxcb.so' -print -delete
+          for optional_qt_dir in \
+            "$APPDIR/plugins/egldeviceintegrations" \
+            "$APPDIR/plugins"/wayland-* \
+            "$APPDIR/qml/QtWayland"; do
+            [[ -e "$optional_qt_dir" || -L "$optional_qt_dir" ]] || continue
+            echo "Removing unused Qt plugin tree: $optional_qt_dir"
+            rm -rf -- "$optional_qt_dir"
+          done
+          find "$APPDIR/lib" "$APPDIR/bin" -maxdepth 1 \
+            \( -type f -o -type l \) \
+            -name 'libQt5Wayland*.so*' -print -delete
 
           test -x "$APPDIR/bin/nunchuk-qt" || {
             echo "::error::CQtDeployer không tạo Appdir/bin/nunchuk-qt"
