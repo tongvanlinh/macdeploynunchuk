@@ -303,6 +303,30 @@ jobs:
               ;;
           esac
 
+          # Runtime dependencies of Qt's required xcb platform plugin.
+          # This runs after compilation, so it does not change the build.
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 \
+            libx11-xcb1 \
+            libxcb-cursor0 \
+            libxcb-glx0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render0 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-shm0 \
+            libxcb-sync1 \
+            libxcb-util1 \
+            libxcb-xfixes0 \
+            libxcb-xinerama0 \
+            libxcb-xinput0 \
+            libxcb-xkb1 \
+            libxkbcommon0 \
+            libxkbcommon-x11-0
+
           WORK_ROOT="$(dirname -- "$GITHUB_WORKSPACE")"
           RELEASE_ROOT="$WORK_ROOT/nunchuk-linux-v$LATEST_VERSION"
           APPDIR="$RELEASE_ROOT/Appdir"
@@ -359,6 +383,14 @@ jobs:
             -icon "$NUNCHUK_LOGO" \
             noTranslation \
             noStrip
+
+          PLATFORM_DIR="$APPDIR/plugins/platforms"
+          test -f "$PLATFORM_DIR/libqxcb.so" || {
+            echo "::error::CQtDeployer không tạo xcb platform plugin"
+            exit 1
+          }
+          find "$PLATFORM_DIR" -maxdepth 1 -type f -name 'libq*.so' \
+            ! -name 'libqxcb.so' -delete
 
           test -x "$APPDIR/bin/nunchuk-qt" || {
             echo "::error::CQtDeployer không tạo Appdir/bin/nunchuk-qt"
