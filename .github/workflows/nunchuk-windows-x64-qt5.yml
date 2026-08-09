@@ -1100,14 +1100,25 @@ jobs:
             "en-US.pak" `
             "QtWebEngine en-US locale"
 
-          $debugQtDlls = Get-ChildItem $stage -Recurse -File | Where-Object {
-            $_.Name -like "Qt5*d.dll" -or $_.Name -in @(
-              "qtgraphicaleffectsplugind.dll",
-              "qtgraphicaleffectsprivated.dll"
-            )
-          }
+          # Không dùng wildcard "Qt5*d.dll": các DLL Release như
+          # Qt5Gamepad.dll và Qt53DQuickScene2D.dll cũng kết thúc bằng "d.dll".
+          # Một DLL chỉ được coi là bản debug khi ngay trong cùng thư mục có
+          # DLL Release tương ứng (tên debug = tên Release + hậu tố "d").
+          $debugQtDlls = @(Get-ChildItem $stage -Recurse -File `
+            -Filter "*.dll" | Where-Object {
+              $isDebugPair = $false
+              if ($_.BaseName.EndsWith(
+                  "d", [System.StringComparison]::OrdinalIgnoreCase)) {
+                $releaseName = `
+                  $_.BaseName.Substring(0, $_.BaseName.Length - 1) + `
+                  $_.Extension
+                $releasePath = Join-Path $_.DirectoryName $releaseName
+                $isDebugPair = Test-Path $releasePath -PathType Leaf
+              }
+              $isDebugPair
+            })
           if ($debugQtDlls.Count -gt 0) {
-            Write-Error "Staging Release chứa Qt debug DLL: $($debugQtDlls.Name -join ', ')"
+            Write-Error "Staging Release chứa Qt debug DLL: $($debugQtDlls.FullName -join ', ')"
             exit 1
           }
 
