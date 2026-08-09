@@ -871,6 +871,44 @@ jobs:
             Copy-Item $source -Destination $stage -Force
           }
 
+          # QML scanner của windeployqt có thể bỏ sót import nằm trong qrc.
+          # Stage trọn module QtGraphicalEffects và chỉ giữ DLL Release.
+          $effectsSource = "$env:QT_DIR\qml\QtGraphicalEffects"
+          $effectsDestination = "$stage\qml\QtGraphicalEffects"
+          if (!(Test-Path $effectsSource -PathType Container)) {
+            Write-Error "QtGraphicalEffects source module not found at $effectsSource"
+            exit 1
+          }
+          if (Test-Path $effectsDestination) {
+            Remove-Item $effectsDestination -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $effectsDestination -Force | Out-Null
+          Copy-Item "$effectsSource\*" -Destination $effectsDestination `
+            -Recurse -Force -ErrorAction Stop
+
+          foreach ($debugDll in @(
+            "$effectsDestination\qtgraphicaleffectsplugind.dll",
+            "$effectsDestination\private\qtgraphicaleffectsprivated.dll"
+          )) {
+            if (Test-Path $debugDll -PathType Leaf) {
+              Remove-Item $debugDll -Force
+            }
+          }
+
+          foreach ($relativePath in @(
+            "qmldir",
+            "qtgraphicaleffectsplugin.dll",
+            "OpacityMask.qml",
+            "private\qmldir",
+            "private\qtgraphicaleffectsprivate.dll"
+          )) {
+            $path = Join-Path $effectsDestination $relativePath
+            if (!(Test-Path $path -PathType Leaf)) {
+              Write-Error "QtGraphicalEffects staging thiếu: $relativePath"
+              exit 1
+            }
+          }
+
           # UI dùng GIF/SVG trực tiếp. Copy có chủ đích để không phụ thuộc kết
           # quả suy luận plugin động của windeployqt.
           $imageRuntimeFiles = @(
@@ -1028,6 +1066,11 @@ jobs:
             "mediaservice\qtmedia_audioengine.dll",
             "mediaservice\wmfengine.dll",
             "playlistformats\qtmultimedia_m3u.dll",
+            "qml\QtGraphicalEffects\qmldir",
+            "qml\QtGraphicalEffects\qtgraphicaleffectsplugin.dll",
+            "qml\QtGraphicalEffects\OpacityMask.qml",
+            "qml\QtGraphicalEffects\private\qmldir",
+            "qml\QtGraphicalEffects\private\qtgraphicaleffectsprivate.dll",
             "$env:VC_REDIST"
           )
           foreach ($relativePath in $requiredFiles) {
@@ -1047,10 +1090,6 @@ jobs:
               exit 1
             }
           }
-          Assert-StagedMatch `
-            "$stage\qml\QtGraphicalEffects\private" `
-            "qtgraphicaleffectsprivate.dll" `
-            "QtGraphicalEffects private plugin"
           Assert-StagedMatch $stage "QtWebEngineProcess.exe" "QtWebEngineProcess.exe"
           Assert-StagedMatch $stage "qtwebengine_resources.pak" "qtwebengine_resources.pak"
           Assert-StagedMatch $stage "qtwebengine_resources_100p.pak" "QtWebEngine 100% resources"
@@ -1061,7 +1100,12 @@ jobs:
             "en-US.pak" `
             "QtWebEngine en-US locale"
 
-          $debugQtDlls = Get-ChildItem $stage -Recurse -File -Filter "Qt5*d.dll"
+          $debugQtDlls = Get-ChildItem $stage -Recurse -File | Where-Object {
+            $_.Name -like "Qt5*d.dll" -or $_.Name -in @(
+              "qtgraphicaleffectsplugind.dll",
+              "qtgraphicaleffectsprivated.dll"
+            )
+          }
           if ($debugQtDlls.Count -gt 0) {
             Write-Error "Staging Release chứa Qt debug DLL: $($debugQtDlls.Name -join ', ')"
             exit 1
@@ -1325,6 +1369,10 @@ jobs:
             "libssl-1_1-x64.dll",
             "platforms\qwindows.dll",
             "mediaservice\dsengine.dll",
+            "qml\QtGraphicalEffects\qmldir",
+            "qml\QtGraphicalEffects\qtgraphicaleffectsplugin.dll",
+            "qml\QtGraphicalEffects\OpacityMask.qml",
+            "qml\QtGraphicalEffects\private\qmldir",
             "qml\QtGraphicalEffects\private\qtgraphicaleffectsprivate.dll",
             "unins000.exe"
           )) {
