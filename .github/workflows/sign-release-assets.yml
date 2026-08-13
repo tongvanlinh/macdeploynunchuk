@@ -1,0 +1,274 @@
+name: Sign GitHub release assets
+
+# Chạy thủ công sau khi toàn bộ binary đã được upload vào một draft release.
+# Sau khi workflow PASS, publish draft để GitHub khóa release nếu đã bật
+# Release immutability.
+# Khóa ký và passphrase được đọc từ Repository Secrets; fingerprint được đọc
+# từ Repository Variables. Không hardcode dữ liệu bí mật trong workflow này.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag của GitHub Release cần ký, ví dụ v1.2.3
+        required: true
+        type: string
+
+# Mặc định chỉ đọc. Job ký mới được nâng quyền ghi Release.
+permissions:
+  contents: read
+
+concurrency:
+  group: sign-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  inspect-release:
+    name: Inspect release before exposing signing key
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.inspect.outputs.tag }}
+      is_draft: ${{ steps.inspect.outputs.is_draft }}
+    steps:
+      - name: Validate release and assets
+        id: inspect
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$REQUESTED_TAG" ]]; then
+            echo '::error::Tag không được để trống.'
+            exit 1
+          fi
+
+          release_json="$(gh release view \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isImmutable,assets \
+            -- "$REQUESTED_TAG")"
+
+          actual_tag="$(jq -r '.tagName' <<< "$release_json")"
+          is_draft="$(jq -r '.isDraft' <<< "$release_json")"
+          is_immutable="$(jq -r '.isImmutable' <<< "$release_json")"
+          asset_count="$(jq '[.assets[] | select(
+            .name != "SHA256SUMS" and
+            .name != "SHA256SUMS.asc"
+          )] | length' <<< "$release_json")"
+
+          if [[ "$actual_tag" != "$REQUESTED_TAG" ]]; then
+            echo "::error::Release trả về tag không khớp: $actual_tag"
+            exit 1
+          fi
+          if [[ "$is_immutable" == 'true' ]]; then
+            echo '::error::Release đã immutable nên không thể thêm/chỉnh chữ ký. Hãy ký draft release trước khi publish.'
+            exit 1
+          fi
+          if (( asset_count == 0 )); then
+            echo '::error::Release không có asset để checksum.'
+            exit 1
+          fi
+          if [[ "$is_draft" != 'true' ]]; then
+            echo '::warning::Đang ký release đã publish nhưng chưa immutable. Không thay đổi asset sau khi ký.'
+          fi
+
+          {
+            echo "tag=$actual_tag"
+            echo "is_draft=$is_draft"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $actual_tag có $asset_count asset cần ký."
+
+  sign-release:
+    name: Checksum, sign and upload
+    needs: inspect-release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Không checkout và không chạy code từ repo/release. Khóa chỉ được đưa vào
+      # đúng step này, trên GitHub-hosted runner tạm thời.
+      - name: Sign release assets with isolated GnuPG home
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.inspect-release.outputs.tag }}
+          EXPECTED_FINGERPRINT: ${{ vars.RELEASE_GPG_FINGERPRINT }}
+          # Chỉ lưu export của signing subkey; không lưu private primary/master key.
+          PRIVATE_KEY_B64: ${{ secrets.RELEASE_GPG_PRIVATE_KEY_B64 }}
+          KEY_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export LC_ALL=C
+
+          work_dir="$(mktemp -d "$RUNNER_TEMP/release-signing.XXXXXX")"
+          asset_dir="$work_dir/assets"
+          verify_dir="$work_dir/remote-verify"
+          export GNUPGHOME="$(mktemp -d "$RUNNER_TEMP/gnupg-release.XXXXXX")"
+          private_key_file="$(mktemp "$RUNNER_TEMP/release-key.XXXXXX")"
+          passphrase_file="$(mktemp "$RUNNER_TEMP/release-passphrase.XXXXXX")"
+
+          cleanup() {
+            gpgconf --kill all >/dev/null 2>&1 || true
+            rm -f -- "$private_key_file" "$passphrase_file"
+            rm -rf -- "$GNUPGHOME" "$work_dir"
+          }
+          trap cleanup EXIT
+
+          for command_name in base64 gh gpg gpgconf jq sha256sum; do
+            command -v "$command_name" >/dev/null || {
+              echo "::error::Runner thiếu công cụ bắt buộc: $command_name"
+              exit 1
+            }
+          done
+
+          if [[ -z "$PRIVATE_KEY_B64" || -z "$KEY_PASSPHRASE" ]]; then
+            echo '::error::Thiếu RELEASE_GPG_PRIVATE_KEY_B64 hoặc RELEASE_GPG_PASSPHRASE trong Repository Secrets.'
+            exit 1
+          fi
+
+          expected_fingerprint="$(printf '%s' "$EXPECTED_FINGERPRINT" |
+            tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$expected_fingerprint" =~ ^([0-9A-F]{40}|[0-9A-F]{64})$ ]]; then
+            echo '::error::RELEASE_GPG_FINGERPRINT phải là full fingerprint OpenPGP (40 hoặc 64 ký tự hex).'
+            exit 1
+          fi
+
+          # Release có thể đã bị publish/khóa sau bước inspect ban đầu.
+          current_is_immutable="$(gh release view \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isImmutable \
+            --jq '.isImmutable' \
+            -- "$RELEASE_TAG")"
+          if [[ "$current_is_immutable" == 'true' ]]; then
+            echo '::error::Release đã immutable trong lúc workflow chờ approval; dừng trước khi import khóa.'
+            exit 1
+          fi
+
+          printf '%s' "$PRIVATE_KEY_B64" | base64 --decode > "$private_key_file"
+          printf '%s' "$KEY_PASSPHRASE" > "$passphrase_file"
+          unset PRIVATE_KEY_B64 KEY_PASSPHRASE
+          test -s "$private_key_file"
+
+          imported_fingerprint="$(gpg --batch --with-colons \
+            --import-options show-only --import "$private_key_file" 2>/dev/null |
+            awk -F: '$1 == "fpr" { print toupper($10); exit }')"
+          if [[ "$imported_fingerprint" != "$expected_fingerprint" ]]; then
+            echo "::error::Fingerprint khóa bí mật không khớp biến đã pin. Expected=$expected_fingerprint Actual=${imported_fingerprint:-unknown}"
+            exit 1
+          fi
+
+          gpg --batch --quiet --import "$private_key_file"
+          secret_key_listing="$(gpg --batch --with-colons \
+            --list-secret-keys "$expected_fingerprint")"
+          primary_secret_marker="$(awk -F: '$1 == "sec" {
+            print $15
+            exit
+          }' <<< "$secret_key_listing")"
+          if [[ "$primary_secret_marker" != '#' ]]; then
+            echo '::error::Secret chứa private primary/master key. Chỉ được dùng export của signing subkey.'
+            exit 1
+          fi
+
+          usable_subkey_count="$(awk -F: '$1 == "ssb" && $15 != "#" {
+            count++
+          } END { print count + 0 }' <<< "$secret_key_listing")"
+          usable_signing_subkey_count="$(awk -F: '
+            $1 == "ssb" && $15 != "#" && tolower($12) ~ /s/ { count++ }
+            END { print count + 0 }
+          ' <<< "$secret_key_listing")"
+          if (( usable_subkey_count != 1 || usable_signing_subkey_count != 1 )); then
+            echo '::error::Secret phải chứa đúng một private signing subkey khả dụng và không chứa private subkey khác.'
+            exit 1
+          fi
+
+          mkdir -p "$asset_dir" "$verify_dir"
+          gh release download \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$asset_dir" \
+            --clobber \
+            -- "$RELEASE_TAG"
+
+          rm -f -- \
+            "$asset_dir/SHA256SUMS" \
+            "$asset_dir/SHA256SUMS.asc"
+
+          original_asset_count="$(find "$asset_dir" -maxdepth 1 -type f \
+            -printf '.' | wc -c | tr -d '[:space:]')"
+          if (( original_asset_count == 0 )); then
+            echo '::error::Không tải được asset gốc nào từ release.'
+            exit 1
+          fi
+
+          checksum_file="$asset_dir/SHA256SUMS"
+          signature_file="$asset_dir/SHA256SUMS.asc"
+
+          (
+            cd "$asset_dir"
+            while IFS= read -r -d '' asset; do
+              sha256sum -- "$asset"
+            done < <(find . -maxdepth 1 -type f \
+              ! -name 'SHA256SUMS' \
+              ! -name 'SHA256SUMS.asc' \
+              -print0 | sort -z)
+          ) > "$checksum_file"
+          test -s "$checksum_file"
+          manifest_count="$(wc -l < "$checksum_file" | tr -d '[:space:]')"
+          if (( manifest_count != original_asset_count )); then
+            echo '::error::Manifest phải chứa toàn bộ asset gốc.'
+            exit 1
+          fi
+
+          gpg --batch --yes --no-tty \
+            --pinentry-mode loopback \
+            --passphrase-file "$passphrase_file" \
+            --local-user "$expected_fingerprint" \
+            --armor --clearsign \
+            --output "$signature_file" \
+            "$checksum_file"
+
+          (
+            cd "$asset_dir"
+            gpg --batch --verify SHA256SUMS.asc
+            sha256sum --check --strict SHA256SUMS
+          )
+
+          gh release upload \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            -- "$RELEASE_TAG" \
+            "$checksum_file" \
+            "$signature_file"
+
+          # Tải lại từ GitHub để chắc chắn chữ ký và checksum vừa công bố khớp
+          # chính xác với các asset đang có trên Release.
+          gh release download \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$verify_dir" \
+            --clobber \
+            -- "$RELEASE_TAG"
+          (
+            cd "$verify_dir"
+            gpg --batch --verify SHA256SUMS.asc
+            sha256sum --check --strict SHA256SUMS
+            remote_manifest_count="$(wc -l < SHA256SUMS |
+              tr -d '[:space:]')"
+            remote_signed_file_count="$(find . -maxdepth 1 -type f \
+              ! -name 'SHA256SUMS' \
+              ! -name 'SHA256SUMS.asc' \
+              -printf '.' | wc -c | tr -d '[:space:]')"
+            if (( remote_manifest_count != remote_signed_file_count )); then
+              echo '::error::Release có asset không nằm trong manifest đã ký.'
+              exit 1
+            fi
+          )
+
+          {
+            echo '### Release signing: PASS'
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Primary fingerprint: \`$expected_fingerprint\`"
+            echo "- Original assets: $original_asset_count"
+            echo "- Draft release: \`${{ needs.inspect-release.outputs.is_draft }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
