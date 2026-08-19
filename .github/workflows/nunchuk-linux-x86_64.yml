@@ -307,6 +307,7 @@ jobs:
           # WebEngine backends.
           # This runs after compilation, so it does not change the build.
           sudo apt-get install -y --no-install-recommends \
+            ca-certificates \
             libegl1 \
             libgstreamer1.0-0 \
             libgstreamer-plugins-base1.0-0 \
@@ -476,6 +477,10 @@ jobs:
           APPDIR="$RELEASE_ROOT/Appdir"
           APPDIR_TOOL="$RUNNER_TEMP/nunchuk-appdir-tool.sh"
           HWI_SOURCE="$GITHUB_WORKSPACE/hwi-extracted/hwi"
+          OPENSSL_LIB_DIR="$WORK_ROOT/openssl-1.1.1g/lib/lib"
+          CA_CERT_SOURCE="/etc/ssl/certs/ca-certificates.crt"
+          SSL_PROBE_ROOT="$RUNNER_TEMP/nunchuk-ssl-probe"
+          SSL_PROBE="$SSL_PROBE_ROOT/nunchuk-ssl-probe"
 
           test -x "$HWI_SOURCE" || {
             echo "::error::Không tìm thấy HWI đã extract: $HWI_SOURCE"
@@ -501,6 +506,26 @@ jobs:
             "$APPDIR/libexec" \
             "$APPDIR/resources" \
             "$APPDIR/translations/qtwebengine_locales"
+
+          for ssl_library in libssl.so.1.1 libcrypto.so.1.1; do
+            test -f "$OPENSSL_LIB_DIR/$ssl_library" || {
+              echo "::error::Thiếu OpenSSL runtime đã build: $ssl_library"
+              exit 1
+            }
+            install -m 0755 \
+              "$OPENSSL_LIB_DIR/$ssl_library" \
+              "$APPDIR/lib/$ssl_library"
+          done
+          ln -sfn libssl.so.1.1 "$APPDIR/lib/libssl.so"
+          ln -sfn libcrypto.so.1.1 "$APPDIR/lib/libcrypto.so"
+
+          test -s "$CA_CERT_SOURCE" || {
+            echo "::error::Thiếu CA certificate bundle: $CA_CERT_SOURCE"
+            exit 1
+          }
+          install -m 0644 \
+            "$CA_CERT_SOURCE" \
+            "$APPDIR/resources/ca-certificates.crt"
 
           install -m 0755 \
             "$QT_INSTALLED_PREFIX/libexec/QtWebEngineProcess" \
@@ -570,6 +595,7 @@ jobs:
           export QTWEBENGINEPROCESS_PATH="$HERE/libexec/QtWebEngineProcess"
           export QTWEBENGINE_RESOURCES_PATH="$HERE/resources"
           export QTWEBENGINE_LOCALES_PATH="$HERE/translations/qtwebengine_locales"
+          export SSL_CERT_FILE="$HERE/resources/ca-certificates.crt"
           export QTWEBENGINE_DISABLE_SANDBOX=1
 
           exec "$HERE/bin/nunchuk-qt" "$@"
@@ -735,6 +761,11 @@ jobs:
               "$appdir/resources/qtwebengine_resources.pak" \
               "$appdir/resources/qtwebengine_resources_100p.pak" \
               "$appdir/resources/qtwebengine_resources_200p.pak" \
+              "$appdir/resources/ca-certificates.crt" \
+              "$appdir/lib/libssl.so.1.1" \
+              "$appdir/lib/libcrypto.so.1.1" \
+              "$appdir/lib/libssl.so" \
+              "$appdir/lib/libcrypto.so" \
               "$appdir/qt-plugin-manifest.txt" \
               "$appdir/nunchuk.desktop" \
               "$appdir/nunchuk-qt.png"; do
@@ -758,6 +789,17 @@ jobs:
             }
             [[ -x "$appdir/libexec/QtWebEngineProcess" ]] || {
               echo "::error::QtWebEngineProcess không executable" >&2
+              failures=$((failures + 1))
+            }
+
+            readelf -d "$appdir/lib/libssl.so.1.1" 2>/dev/null |
+              grep -Fq 'Library soname: [libssl.so.1.1]' || {
+              echo "::error::OpenSSL runtime không đúng SONAME libssl.so.1.1" >&2
+              failures=$((failures + 1))
+            }
+            readelf -d "$appdir/lib/libcrypto.so.1.1" 2>/dev/null |
+              grep -Fq 'Library soname: [libcrypto.so.1.1]' || {
+              echo "::error::OpenSSL runtime không đúng SONAME libcrypto.so.1.1" >&2
               failures=$((failures + 1))
             }
 
@@ -924,6 +966,66 @@ jobs:
             "$WORK_ROOT/openssl-1.1.1g/lib/lib" \
             "$RELEASE_ROOT/dependency-report.txt"
 
+          rm -rf -- "$SSL_PROBE_ROOT"
+          mkdir -p "$SSL_PROBE_ROOT"
+          cat > "$SSL_PROBE_ROOT/ssl-probe.cpp" <<'SSL_PROBE_SOURCE'
+          #include <QCoreApplication>
+          #include <QSslCertificate>
+          #include <QSslSocket>
+          #include <QTextStream>
+          #include <cstdio>
+
+          int main(int argc, char **argv)
+          {
+              QCoreApplication app(argc, argv);
+              const bool supportsSsl = QSslSocket::supportsSsl();
+              const QString buildVersion = QSslSocket::sslLibraryBuildVersionString();
+              const QString runtimeVersion = QSslSocket::sslLibraryVersionString();
+              const QString caFile = qEnvironmentVariable("SSL_CERT_FILE");
+              const auto certificates = QSslCertificate::fromPath(caFile);
+
+              QTextStream output(stdout);
+              output << "supports_ssl=" << (supportsSsl ? "true" : "false") << '\n'
+                     << "ssl_build_version=" << buildVersion << '\n'
+                     << "ssl_runtime_version=" << runtimeVersion << '\n'
+                     << "ca_certificates=" << certificates.size() << '\n';
+              output.flush();
+
+              return supportsSsl &&
+                     runtimeVersion.startsWith(QStringLiteral("OpenSSL 1.1.1")) &&
+                     !certificates.isEmpty() ? 0 : 1;
+          }
+          SSL_PROBE_SOURCE
+
+          cat > "$SSL_PROBE_ROOT/ssl-probe.pro" <<'SSL_PROBE_PROJECT'
+          QT += core network
+          CONFIG += console c++11
+          CONFIG -= app_bundle
+          TEMPLATE = app
+          TARGET = nunchuk-ssl-probe
+          SOURCES += ssl-probe.cpp
+          SSL_PROBE_PROJECT
+
+          (
+            cd "$SSL_PROBE_ROOT"
+            "$QT_INSTALLED_PREFIX/bin/qmake" ssl-probe.pro
+            make -j2
+          )
+          test -x "$SSL_PROBE" || {
+            echo "::error::Không build được Qt SSL runtime probe"
+            exit 1
+          }
+          env \
+            LD_LIBRARY_PATH="$APPDIR/lib:$APPDIR/bin" \
+            SSL_CERT_FILE="$APPDIR/resources/ca-certificates.crt" \
+            "$SSL_PROBE" 2>&1 | tee "$RELEASE_ROOT/ssl-probe.log"
+          {
+            printf '\nTLS runtime:\n'
+            grep -E '^ssl_(build|runtime)_version=' "$RELEASE_ROOT/ssl-probe.log"
+            printf 'ca_bundle=resources/ca-certificates.crt\n'
+            printf 'host_openssl_required=false\n'
+          } >> "$RELEASE_ROOT/build-info.txt"
+
           sh -n "$APPDIR/AppRun"
           if command -v desktop-file-validate >/dev/null; then
             desktop-file-validate "$APPDIR/nunchuk.desktop"
@@ -959,6 +1061,7 @@ jobs:
           APPIMAGE_RUNTIME="$RUNNER_TEMP/appimage-runtime-x86_64"
           VERIFY_ROOT="$RUNNER_TEMP/nunchuk-appimage-verify"
           SMOKE_LOG="$RELEASE_ROOT/appimage-smoke.log"
+          SSL_PROBE="$RUNNER_TEMP/nunchuk-ssl-probe/nunchuk-ssl-probe"
 
           for command_name in curl tar zip unzip timeout xvfb-run dbus-run-session; do
             command -v "$command_name" >/dev/null || {
@@ -1019,6 +1122,15 @@ jobs:
             "$EXTRACTED_APPDIR" \
             "$RELEASE_ROOT/extracted-dependency-report.txt"
 
+          test -x "$SSL_PROBE" || {
+            echo "::error::Không tìm thấy Qt SSL runtime probe"
+            exit 1
+          }
+          env \
+            LD_LIBRARY_PATH="$EXTRACTED_APPDIR/lib:$EXTRACTED_APPDIR/bin" \
+            SSL_CERT_FILE="$EXTRACTED_APPDIR/resources/ca-certificates.crt" \
+            "$SSL_PROBE" 2>&1 | tee "$RELEASE_ROOT/extracted-ssl-probe.log"
+
           set +e
           timeout --signal=TERM --kill-after=10s 30s \
             dbus-run-session -- \
@@ -1040,7 +1152,7 @@ jobs:
           esac
 
           if grep -Eiq \
-            'error while loading shared libraries|symbol lookup error|could not load the qt platform plugin|no qt platform plugin could be initialized|qqmlapplicationengine failed to load component|module .* is not installed|type .* unavailable|could not find qtwebengineprocess|qt webengine resources not found|failed to create opengl context' \
+            'error while loading shared libraries|symbol lookup error|could not load the qt platform plugin|no qt platform plugin could be initialized|qqmlapplicationengine failed to load component|module .* is not installed|type .* unavailable|could not find qtwebengineprocess|qt webengine resources not found|failed to create opengl context|qsslsocket: cannot (resolve|call)|tls initialization failed|no functional tls backend' \
             "$SMOKE_LOG"; then
             cat "$SMOKE_LOG"
             echo "::error::Smoke log contains a runtime loader/Qt plugin error"
@@ -1057,6 +1169,10 @@ jobs:
             ./$BASE_NAME.AppImage
 
           GitHub Actions artifacts normalize directly uploaded file permissions.
+
+          TLS:
+            OpenSSL 1.1.1 runtime and CA certificates are bundled in the AppImage.
+            The host OpenSSL version is not used by Nunchuk.
           USAGE_NOTE
 
           (
