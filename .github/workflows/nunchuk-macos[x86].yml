@@ -108,7 +108,7 @@ jobs:
         with:
           version: '5.15.2'
           host: 'mac'
-          modules: 'qtwebengine'
+          modules: 'qtwebengine qtnetworkauth'
   
       - name: Configure Qt5 paths
         run: |
