@@ -4,6 +4,21 @@ env:
   QT_VERSION: '6.9.3'
   QT_ARCH: win64_msvc2022_64
   QT_DIR_NAME: msvc2022_64
+  CMAKE_VERSION: '3.31.0'
+  CMAKE_WINDOWS_SHA256: 'f4b499f71cf44115a1d711d4867da3c6bd2f3f4d7121c213ace979757640385c'
+  PYTHON_VERSION: '3.11.9'
+  AQTINSTALL_VERSION: '3.3.0'
+  PY7ZR_VERSION: '1.1.0'
+  # Ninja 1.13.0 có regression response-file với MSVC:
+  # https://github.com/ninja-build/ninja/issues/2616
+  NINJA_VERSION: '1.11.1.1'
+  NINJA_BINARY_VERSION: '1.11.1.git.kitware.jobserver-1'
+  MSVC_VERSION: '2022'
+  MSVC_TOOLSET_VERSION: '14.44.35207'
+  WINDOWS_SDK_VERSION: '10.0.22621.0'
+  VCPKG_COMMIT: 'f523208df4ae467436dc2d2eeab594fed240d552'
+  LIBEVENT_VERSION: '2.1.12+20230128#1'
+  LIBEVENT_SOURCE_REF: '4d85d28acdbb83bb60e500e9345bab757b64d6d1'
   # Qt official MSVC dùng CRT động (/MD). Giữ dependency là static archive để
   # giảm DLL phải deploy, nhưng toàn bộ process phải dùng cùng CRT động.
   VCPKG_TRIPLET: x64-windows-static-md
@@ -27,7 +42,8 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout v4; pin SHA để tag v4 không tự thay đổi.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         
       - name: Check Windows Version
         shell: pwsh
@@ -39,9 +55,13 @@ jobs:
       # là vcpkg build boost thành công. Với env này + generator Ninja, CMake gọi
       # thẳng cl.exe từ PATH, không phụ thuộc cơ chế dò VS.
       - name: Setup MSVC developer environment
-        uses: ilammy/msvc-dev-cmd@v1
+        # ilammy/msvc-dev-cmd v1; pin action + compiler + Windows SDK.
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
         with:
           arch: x64
+          vsversion: ${{ env.MSVC_VERSION }}
+          toolset: ${{ env.MSVC_TOOLSET_VERSION }}
+          sdk: ${{ env.WINDOWS_SDK_VERSION }}
 
       - name: Verify MSVC target architecture
         shell: pwsh
@@ -52,9 +72,19 @@ jobs:
           }
           Get-Command cl.exe, dumpbin.exe -ErrorAction Stop | `
             Select-Object Name, Source
+          $actualToolset = $env:VCToolsVersion.TrimEnd('\')
+          $actualSdk = $env:WindowsSDKVersion.TrimEnd('\')
+          if ($actualToolset -ne $env:MSVC_TOOLSET_VERSION) {
+            Write-Error "MSVC toolset sai: expected=$env:MSVC_TOOLSET_VERSION actual=$actualToolset"
+            exit 1
+          }
+          if ($actualSdk -ne $env:WINDOWS_SDK_VERSION) {
+            Write-Error "Windows SDK sai: expected=$env:WINDOWS_SDK_VERSION actual=$actualSdk"
+            exit 1
+          }
           'int main() { return 0; }' | Set-Content toolchain-probe.cpp `
             -Encoding ASCII
-          & cl.exe /nologo /c toolchain-probe.cpp /Fotoolchain-probe.obj
+          & cl.exe /nologo /Bv /c toolchain-probe.cpp /Fotoolchain-probe.obj
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $headers = & dumpbin.exe /HEADERS toolchain-probe.obj 2>&1 | `
             Out-String
@@ -63,35 +93,64 @@ jobs:
             Write-Error "MSVC không tạo object $env:TARGET_ARCH hợp lệ."
             exit 1
           }
-          Write-Host "MSVC target architecture: PASS ($env:TARGET_ARCH)"
+          Write-Host "MSVC/SDK pin: PASS ($actualToolset, $actualSdk, $env:TARGET_ARCH)"
 
-      - name: Install CMake 3.31.0
+      - name: Install pinned CMake
         shell: pwsh
         run: |
-          $version = "3.31.0"
+          $version = $env:CMAKE_VERSION
           $uri = "https://github.com/Kitware/CMake/releases/download/v$version/cmake-$version-windows-x86_64.zip"
-          $zipPath = "$env:TEMP\cmake.zip"
-          $cmakeDir = "$env:ProgramFiles\CMake"
+          $zipPath = "$env:RUNNER_TEMP\cmake-$version.zip"
+          $cmakeDir = "$env:RUNNER_TEMP\cmake-$version"
       
           Invoke-WebRequest -Uri $uri -OutFile $zipPath
+          $actualHash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -cne $env:CMAKE_WINDOWS_SHA256) {
+            Write-Error "CMake checksum mismatch: expected=$env:CMAKE_WINDOWS_SHA256 actual=$actualHash"
+            exit 1
+          }
           Expand-Archive -Path $zipPath -DestinationPath $cmakeDir -Force
       
           $binPath = "$cmakeDir\cmake-$version-windows-x86_64\bin"
           echo "$binPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           
       - name: Check CMake version
-        run: cmake --version
+        shell: pwsh
+        run: |
+          $firstLine = (& cmake --version | Select-Object -First 1).Trim()
+          if ($LASTEXITCODE -ne 0 -or $firstLine -ne "cmake version $env:CMAKE_VERSION") {
+            Write-Error "CMake sai version: expected=$env:CMAKE_VERSION actual='$firstLine'"
+            exit 1
+          }
+          Get-Command cmake.exe | Select-Object Name, Source
+          Write-Host "${firstLine}: PASS"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        # actions/setup-python v5; pin action và Python patch version.
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
+          architecture: x64
 
-      - name: Install aqtinstall and ninja
+      - name: Install pinned Python build tools
+        shell: pwsh
         run: |
-          pip install "aqtinstall==3.3.0" "py7zr==1.1.0" ninja
-          pip check
-          python -c "import py7zr; assert py7zr.__version__ == '1.1.0', py7zr.__version__"
+          python -m pip install `
+            "aqtinstall==$env:AQTINSTALL_VERSION" `
+            "py7zr==$env:PY7ZR_VERSION" `
+            "ninja==$env:NINJA_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import py7zr; assert py7zr.__version__ == '$env:PY7ZR_VERSION', py7zr.__version__"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ninjaLine = (& ninja --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or `
+              $ninjaLine -ne $env:NINJA_BINARY_VERSION) {
+            Write-Error "Ninja sai version binary: expected=$env:NINJA_BINARY_VERSION actual='$ninjaLine'"
+            exit 1
+          }
+          Write-Host "Python tools pin: PASS"
   
       - name: Install Qt 6.9.3 (MSVC 2022)
         shell: pwsh
@@ -153,35 +212,103 @@ jobs:
           "$qtDir\bin" | Out-File $env:GITHUB_PATH -Encoding utf8 -Append
           Write-Host "Qt installed at: $qtDir"
       
-      - name: Setup Cache vcpkg packages
-        uses: actions/cache@v4
+      # Không cache cả checkout/installed của vcpkg: cache cũ từng che mất
+      # lỗi cold-build và có thể trộn binary từ compiler khác. Chỉ cache
+      # source archive + binary package có ABI key của vcpkg.
+      - name: Prepare isolated vcpkg caches
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force `
+            "${{ github.workspace }}\vcpkg-downloads", `
+            "${{ github.workspace }}\vcpkg-binary-cache" | Out-Null
+
+      - name: Restore vcpkg downloads and binary packages
+        id: cache-vcpkg
+        # actions/cache v4; pin SHA để tag v4 không tự thay đổi.
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
-            ${{ github.workspace }}/vcpkg
-            ${{ github.workspace }}/vcpkg/installed
-          key: vcpkg-f523208-${{ runner.os }}-x64-static-md-v1-${{ github.ref }}-${{ hashFiles('**/vcpkg.json') }}
+            ${{ github.workspace }}/vcpkg-downloads
+            ${{ github.workspace }}/vcpkg-binary-cache
+          key: vcpkg-binary-v2-${{ runner.os }}-${{ env.MSVC_TOOLSET_VERSION }}-${{ env.WINDOWS_SDK_VERSION }}-${{ env.CMAKE_VERSION }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('.github/workflows/nunchuk-window-x64.yml') }}
           restore-keys: |
-            vcpkg-f523208-${{ runner.os }}-x64-static-md-v1-
+            vcpkg-binary-v2-${{ runner.os }}-${{ env.MSVC_TOOLSET_VERSION }}-${{ env.WINDOWS_SDK_VERSION }}-${{ env.CMAKE_VERSION }}-${{ env.VCPKG_COMMIT }}-
+
+      - name: Report vcpkg cache state
+        shell: pwsh
+        run: Write-Host "vcpkg cache exact hit = ${{ steps.cache-vcpkg.outputs.cache-hit }}"
 
       - name: Set up vcpkg
         working-directory: ${{ github.workspace }}
         shell: pwsh
         run: |
-          if (!(Test-Path "vcpkg\.git")) {
-            if (Test-Path "vcpkg") { Remove-Item "vcpkg" -Recurse -Force }
-            git clone https://github.com/microsoft/vcpkg.git
+          # Luôn tạo checkout sạch; chỉ fetch đúng commit đã pin.
+          if (Test-Path "vcpkg") {
+            Remove-Item "vcpkg" -Recurse -Force
           }
-          cd vcpkg
-          echo "Checkout version f523208df4ae467436dc2d2eeab594fed240d552"
-          git checkout f523208df4ae467436dc2d2eeab594fed240d552
-          .\bootstrap-vcpkg.bat
+          git init vcpkg
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C vcpkg remote add origin https://github.com/microsoft/vcpkg.git
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C vcpkg fetch --depth 1 origin $env:VCPKG_COMMIT
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C vcpkg checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $actualCommit = (& git -C vcpkg rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actualCommit -cne $env:VCPKG_COMMIT) {
+            Write-Error "vcpkg commit sai: expected=$env:VCPKG_COMMIT actual=$actualCommit"
+            exit 1
+          }
+
+          # Khóa cả version port lẫn source commit của libevent.
+          $libeventManifestPath = "vcpkg\ports\libevent\vcpkg.json"
+          $libeventManifest = Get-Content $libeventManifestPath -Raw | `
+            ConvertFrom-Json
+          $actualLibeventVersion = $libeventManifest.version
+          if ($libeventManifest.'port-version' -gt 0) {
+            $actualLibeventVersion += "#$($libeventManifest.'port-version')"
+          }
+          $libeventPortfile = Get-Content `
+            "vcpkg\ports\libevent\portfile.cmake" -Raw
+          $sourcePattern = "(?m)^\s*REF\s+" + `
+            [regex]::Escape($env:LIBEVENT_SOURCE_REF) + "\s*$"
+          if ($actualLibeventVersion -cne $env:LIBEVENT_VERSION -or `
+              $libeventPortfile -notmatch $sourcePattern) {
+            Write-Error "libevent pin sai: version=$actualLibeventVersion source=$env:LIBEVENT_SOURCE_REF"
+            exit 1
+          }
+
+          $vcpkgRoot = (Resolve-Path "vcpkg").Path
+
+          # Community triplet gốc không khóa MSVC minor/SDK. Checkout này
+          # là ephemeral nên materialize triplet chính xác trước bootstrap.
+          $tripletFile = `
+            "$vcpkgRoot\triplets\community\$env:VCPKG_TRIPLET.cmake"
+          @"
+          set(VCPKG_TARGET_ARCHITECTURE x64)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE static)
+          set(VCPKG_PLATFORM_TOOLSET v143)
+          set(VCPKG_PLATFORM_TOOLSET_VERSION "$env:MSVC_TOOLSET_VERSION")
+          set(VCPKG_CMAKE_SYSTEM_VERSION "$env:WINDOWS_SDK_VERSION")
+          "@ | Set-Content $tripletFile -Encoding ASCII
+
+          & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           # msvc-dev-cmd đặt VCPKG_ROOT tới bản vcpkg đi kèm Visual Studio.
           # Workflow dùng bản đã pin trong workspace nên ghi đè cho mọi step sau.
-          $vcpkgRoot = (Resolve-Path ".").Path
           "VCPKG_ROOT=$vcpkgRoot" | `
             Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "VCPKG_DOWNLOADS=${{ github.workspace }}\vcpkg-downloads" | `
+            Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          $binaryCache = `
+            "${{ github.workspace }}\vcpkg-binary-cache"
+          "VCPKG_BINARY_SOURCES=clear;files,$binaryCache,readwrite" | `
+            Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "VCPKG_ROOT=$vcpkgRoot"
+          Write-Host "vcpkg/libevent pin: PASS ($actualCommit, $actualLibeventVersion)"
           
       - name: Install dependencies with vcpkg
         working-directory: ${{ github.workspace }}
@@ -219,18 +346,38 @@ jobs:
             "boost-signals2",
             "boost-tokenizer",
             "zeromq",
-            "libevent",
             "openssl",
             "berkeleydb",
             "sqlite3"
           ) | ForEach-Object { "${_}:$env:VCPKG_TRIPLET" }
 
+          # Cài riêng libevent để cold-build fail nhanh và log rõ. Biến
+          # policy là fallback cho lỗi CMake 4 đã được upstream xác nhận.
+          $env:CMAKE_POLICY_VERSION_MINIMUM = '3.5'
+          $libeventSpec = "libevent:$env:VCPKG_TRIPLET"
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --debug $libeventSpec
+          if ($LASTEXITCODE -ne 0) {
+            $vcpkgExitCode = $LASTEXITCODE
+            Write-Host "---- libevent failure logs ----"
+            Get-ChildItem "$env:VCPKG_ROOT\buildtrees\libevent" -Recurse `
+              -File -ErrorAction SilentlyContinue | Where-Object {
+                $_.Extension -in @('.log', '.txt')
+              } | Sort-Object FullName | ForEach-Object {
+                Write-Host "::group::$($_.FullName)"
+                Get-Content $_.FullName -Tail 250 -ErrorAction Continue
+                Write-Host "::endgroup::"
+              }
+            Write-Error "libevent vcpkg install thất bại với exit code $vcpkgExitCode"
+            exit $vcpkgExitCode
+          }
+
           # SQLCipher không hỗ trợ triplet static trong vcpkg và không cần cài:
           # libnunchuk tự build target sqlcipher từ contrib/sqlite.
           & "$env:VCPKG_ROOT\vcpkg.exe" install @packages
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "vcpkg install thất bại với exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+            $vcpkgExitCode = $LASTEXITCODE
+            Write-Error "vcpkg install thất bại với exit code $vcpkgExitCode"
+            exit $vcpkgExitCode
           }
 
           # Không dùng `vcpkg integrate install`: CMake đã nhận toolchain file
@@ -238,6 +385,16 @@ jobs:
           $installedPackages = & "$env:VCPKG_ROOT\vcpkg.exe" list
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $installedPackages | ForEach-Object { Write-Host $_ }
+          $libeventPattern = '^libevent:' + `
+            [regex]::Escape($env:VCPKG_TRIPLET) + '\s+' + `
+            [regex]::Escape($env:LIBEVENT_VERSION) + '(?:\s|$)'
+          $installedLibevent = @($installedPackages | Where-Object {
+            $_ -match $libeventPattern
+          })
+          if ($installedLibevent.Count -ne 1) {
+            Write-Error "libevent installed không đúng pin $env:LIBEVENT_VERSION"
+            exit 1
+          }
           if ($installedPackages -match '^libffi:') {
             Write-Error "Dependency ngoài phạm vi libffi vẫn bị kéo vào build."
             exit 1
@@ -294,6 +451,19 @@ jobs:
           "EVENT_LIBRARY=$eventLibrary" | `
             Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "libevent static: PASS ($eventLibrary)"
+
+      - name: Upload vcpkg libevent logs on failure
+        if: failure()
+        # actions/upload-artifact v4.6.2; pin SHA.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nunchuk-windows-x64-vcpkg-libevent-logs
+          path: |
+            vcpkg/buildtrees/libevent/**/*.log
+            vcpkg/buildtrees/libevent/**/*.txt
+            vcpkg/installed/vcpkg/issue_body.md
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Checkout Olm
         working-directory: ${{ github.workspace }}
@@ -1181,7 +1351,7 @@ jobs:
 
       - name: Upload installer smoke log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: nunchuk-windows-x64-installer-smoke-log
           path: ${{ runner.temp }}/nunchuk-installer-smoke.log
@@ -1201,14 +1371,14 @@ jobs:
           Write-Host "✅ Zipped $src to $dst"
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: nunchuk-windows-x64-v${{ env.LATEST_VERSION }}_${{ env.BUILD_BRANCH }}_${{ env.TIMESTAMP }}
           path: installer/*.exe
 
       - name: Upload deployment artifact
         if: env.UPLOAD_BUILT == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: nunchuk-windows-x64-v${{ env.LATEST_VERSION }}_${{ env.BUILD_BRANCH }}_${{ env.TIMESTAMP }}-built
           path: nunchuk-qt-windows-x64.zip
