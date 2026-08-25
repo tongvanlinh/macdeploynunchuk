@@ -83,10 +83,8 @@ jobs:
           $toolRoot = (Resolve-Path $env:VCToolsInstallDir).Path.TrimEnd('\')
           foreach ($command in @($clCommand, $dumpbinCommand)) {
             $expectedPrefix = "$toolRoot\"
-            if (!$command.Source.StartsWith(
-                $expectedPrefix,
-                [System.StringComparison]::OrdinalIgnoreCase
-              )) {
+            $isPinnedTool = $command.Source.StartsWith($expectedPrefix, [System.StringComparison]::OrdinalIgnoreCase)
+            if (-not $isPinnedTool) {
               Write-Error "$($command.Name) nằm ngoài toolset đã pin: $($command.Source)"
               exit 1
             }
@@ -106,20 +104,17 @@ jobs:
           & cl.exe /nologo /Bv /c toolchain-probe.cpp /Fotoolchain-probe.obj
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $headers = & dumpbin.exe /HEADERS toolchain-probe.obj 2>&1 | `
-          $clOutput = @(
-            & $clCommand.Source /nologo /Bv /c toolchain-probe.cpp `
-              /Fotoolchain-probe.obj 2>&1
-          )
+            Out-String
+          if ($LASTEXITCODE -ne 0 -or `
+          $clPath = $clCommand.Source
+          $dumpbinPath = $dumpbinCommand.Source
+          & $clPath /nologo /Bv /c toolchain-probe.cpp /Fotoolchain-probe.obj
           $clExitCode = $LASTEXITCODE
-          $clOutput | ForEach-Object { Write-Host $_ }
           if ($clExitCode -ne 0) {
             Write-Host "::error::cl.exe thất bại với exit code $clExitCode"
             exit $clExitCode
           }
-          $headers = & $dumpbinCommand.Source /HEADERS `
-            toolchain-probe.obj 2>&1 | `
-            Out-String
-          if ($LASTEXITCODE -ne 0 -or `
+          $headers = & $dumpbinPath /HEADERS toolchain-probe.obj 2>&1 | Out-String
           $dumpbinExitCode = $LASTEXITCODE
           if ($dumpbinExitCode -ne 0 -or `
               $headers -notmatch $env:TARGET_MACHINE_PATTERN) {
