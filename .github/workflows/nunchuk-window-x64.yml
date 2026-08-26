@@ -10,6 +10,13 @@ env:
   PIP_VERSION: '26.2.1'
   AQTINSTALL_VERSION: '3.3.0'
   PY7ZR_VERSION: '1.1.0'
+  # Dùng pkgconf native đã pin thay cho pkg-config của MSYS2. vcpkg commit cũ
+  # tham chiếu archive rolling đã bị mirror xóa nên cold-build trả về 404.
+  PKGCONF_VERSION: '2.3.0.post2'
+  PKGCONF_BINARY_VERSION: '2.3.0'
+  PKGCONF_WINDOWS_URL: 'https://files.pythonhosted.org/packages/41/d9/15d77555b64f71fe2e19535dbaf14d00862f6f7a84060d1edc481842a524/pkgconf-2.3.0.post2-py3-none-win_amd64.whl'
+  PKGCONF_WINDOWS_SHA256: 'a2b650c8b34e402f5e32c06684d95b0c7ebbbb45d17642f5401b625f889d0e6f'
+  PKGCONF_BINARY_SHA256: '1ba9d9178bcaa896d0aea29d3798161d15dc3abe346371e15221de1e30b94a3b'
   # 1.11.1.2 sửa WHEEL metadata lỗi của 1.11.1.1 nhưng giữ binary 1.11.1.
   # https://github.com/pypa/pip/issues/12884
   # Không dùng Ninja 1.13.0 vì có regression response-file với MSVC:
@@ -261,6 +268,69 @@ jobs:
             exit 1
           }
           Write-Host "Python tools pin: PASS (Python $actualPythonVersion, Ninja $ninjaLine)"
+
+      - name: Install pinned pkgconf for vcpkg
+        shell: pwsh
+        run: |
+          $wheelPath = Join-Path $env:RUNNER_TEMP `
+            "pkgconf-$env:PKGCONF_VERSION-win_amd64.whl"
+          $extractDir = Join-Path $env:RUNNER_TEMP `
+            "pkgconf-$env:PKGCONF_VERSION-win_amd64"
+
+          Invoke-WebRequest -Uri $env:PKGCONF_WINDOWS_URL `
+            -OutFile $wheelPath
+          $actualWheelHash = `
+            (Get-FileHash $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualWheelHash -cne $env:PKGCONF_WINDOWS_SHA256) {
+            Write-Error "pkgconf wheel checksum mismatch: expected=$env:PKGCONF_WINDOWS_SHA256 actual=$actualWheelHash"
+            exit 1
+          }
+
+          if (Test-Path $extractDir) {
+            Remove-Item $extractDir -Recurse -Force
+          }
+          & python -m zipfile -e $wheelPath $extractDir
+          $extractExitCode = $LASTEXITCODE
+          if ($extractExitCode -ne 0) {
+            Write-Host "::error::Giải nén pkgconf thất bại với exit code $extractExitCode"
+            exit $extractExitCode
+          }
+
+          $pkgConfigPath = Join-Path $extractDir `
+            'pkgconf\.bin\pkgconf.exe'
+          if (!(Test-Path $pkgConfigPath -PathType Leaf)) {
+            Write-Error "pkgconf.exe không tồn tại: $pkgConfigPath"
+            exit 1
+          }
+          $actualBinaryHash = `
+            (Get-FileHash $pkgConfigPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualBinaryHash -cne $env:PKGCONF_BINARY_SHA256) {
+            Write-Error "pkgconf binary checksum mismatch: expected=$env:PKGCONF_BINARY_SHA256 actual=$actualBinaryHash"
+            exit 1
+          }
+
+          $pkgconfOutput = @(& $pkgConfigPath --version 2>&1)
+          $pkgconfExitCode = $LASTEXITCODE
+          $actualPkgconfVersion = `
+            ([string]($pkgconfOutput | Select-Object -First 1)).Trim()
+          if ($pkgconfExitCode -ne 0 -or `
+              $actualPkgconfVersion -cne $env:PKGCONF_BINARY_VERSION) {
+            Write-Error "pkgconf sai version: expected=$env:PKGCONF_BINARY_VERSION actual='$actualPkgconfVersion' exit_code=$pkgconfExitCode"
+            exit 1
+          }
+
+          $pkgconfHeaders = & dumpbin.exe /HEADERS $pkgConfigPath 2>&1 | `
+            Out-String
+          $dumpbinExitCode = $LASTEXITCODE
+          if ($dumpbinExitCode -ne 0 -or `
+              $pkgconfHeaders -notmatch $env:TARGET_MACHINE_PATTERN) {
+            Write-Error "pkgconf.exe không đúng kiến trúc $env:TARGET_ARCH."
+            exit 1
+          }
+
+          "PINNED_PKG_CONFIG=$pkgConfigPath" | `
+            Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "pkgconf pin: PASS ($actualPkgconfVersion, $pkgConfigPath)"
   
       - name: Install Qt 6.9.3 (MSVC 2022)
         shell: pwsh
@@ -467,6 +537,25 @@ jobs:
           }
           Write-Host "vcpkg linkage: static libraries + dynamic CRT (/MD): PASS"
 
+          if ([string]::IsNullOrWhiteSpace($env:PINNED_PKG_CONFIG) -or `
+              !(Test-Path $env:PINNED_PKG_CONFIG -PathType Leaf)) {
+            Write-Error "pkgconf đã pin không tồn tại: '$env:PINNED_PKG_CONFIG'"
+            exit 1
+          }
+          # Chỉ truyền override vào process vcpkg/CMake con trong step này;
+          # không làm thay đổi các build CMake độc lập phía sau.
+          $env:PKG_CONFIG = $env:PINNED_PKG_CONFIG
+          $pkgconfOutput = @(& $env:PKG_CONFIG --version 2>&1)
+          $pkgconfExitCode = $LASTEXITCODE
+          $actualPkgconfVersion = `
+            ([string]($pkgconfOutput | Select-Object -First 1)).Trim()
+          if ($pkgconfExitCode -ne 0 -or `
+              $actualPkgconfVersion -cne $env:PKGCONF_BINARY_VERSION) {
+            Write-Error "PKG_CONFIG sai version: expected=$env:PKGCONF_BINARY_VERSION actual='$actualPkgconfVersion' exit_code=$pkgconfExitCode"
+            exit 1
+          }
+          Write-Host "vcpkg PKG_CONFIG override: PASS ($env:PKG_CONFIG)"
+
           $packages = @(
             # Chỉ cài các module được include trong branch qt6, libnunchuk và
             # nested Bitcoin Core.
@@ -491,9 +580,14 @@ jobs:
           $env:CMAKE_POLICY_VERSION_MINIMUM = '3.5'
           $libeventSpec = "libevent:$env:VCPKG_TRIPLET"
           & "$env:VCPKG_ROOT\vcpkg.exe" install --debug $libeventSpec
-          if ($LASTEXITCODE -ne 0) {
-            $vcpkgExitCode = $LASTEXITCODE
+          $vcpkgExitCode = $LASTEXITCODE
+          if ($vcpkgExitCode -ne 0) {
             Write-Host "---- libevent failure logs ----"
+            $issueBody = `
+              "$env:VCPKG_ROOT\installed\vcpkg\issue_body.md"
+            if (Test-Path $issueBody -PathType Leaf) {
+              Get-Content $issueBody -ErrorAction Continue
+            }
             Get-ChildItem "$env:VCPKG_ROOT\buildtrees\libevent" -Recurse `
               -File -ErrorAction SilentlyContinue | Where-Object {
                 $_.Extension -in @('.log', '.txt')
@@ -502,16 +596,16 @@ jobs:
                 Get-Content $_.FullName -Tail 250 -ErrorAction Continue
                 Write-Host "::endgroup::"
               }
-            Write-Error "libevent vcpkg install thất bại với exit code $vcpkgExitCode"
+            Write-Host "::error::libevent vcpkg install thất bại với exit code $vcpkgExitCode"
             exit $vcpkgExitCode
           }
 
           # SQLCipher không hỗ trợ triplet static trong vcpkg và không cần cài:
           # libnunchuk tự build target sqlcipher từ contrib/sqlite.
           & "$env:VCPKG_ROOT\vcpkg.exe" install @packages
-          if ($LASTEXITCODE -ne 0) {
-            $vcpkgExitCode = $LASTEXITCODE
-            Write-Error "vcpkg install thất bại với exit code $vcpkgExitCode"
+          $vcpkgExitCode = $LASTEXITCODE
+          if ($vcpkgExitCode -ne 0) {
+            Write-Host "::error::vcpkg install thất bại với exit code $vcpkgExitCode"
             exit $vcpkgExitCode
           }
 
@@ -594,10 +688,9 @@ jobs:
         with:
           name: nunchuk-windows-x64-vcpkg-libevent-logs
           path: |
-            vcpkg/buildtrees/libevent/**/*.log
-            vcpkg/buildtrees/libevent/**/*.txt
+            vcpkg/buildtrees/libevent/**
             vcpkg/installed/vcpkg/issue_body.md
-          if-no-files-found: ignore
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Checkout Olm
