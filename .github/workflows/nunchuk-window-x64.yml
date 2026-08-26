@@ -535,12 +535,14 @@ jobs:
           if ($triplet -notmatch 'VCPKG_LIBRARY_LINKAGE\s+static' -or `
               $triplet -notmatch 'VCPKG_CRT_LINKAGE\s+dynamic') {
             Write-Error "Triplet phải dùng static libraries + dynamic CRT (/MD)."
-          if ($triplet -notmatch `
-                '(?m)^\s*set\(\s*VCPKG_LIBRARY_LINKAGE\s+static\s*\)\s*$' -or `
-              $triplet -notmatch `
-                '(?m)^\s*set\(\s*VCPKG_CRT_LINKAGE\s+dynamic\s*\)\s*$' -or `
-              $triplet -notmatch `
-                '(?m)^\s*set\(\s*VCPKG_ENV_PASSTHROUGH\s+PKG_CONFIG\s*\)\s*$') {
+          $staticPattern = '(?m)^\s*set\(\s*VCPKG_LIBRARY_LINKAGE\s+static\s*\)\s*$'
+          $dynamicCrtPattern = '(?m)^\s*set\(\s*VCPKG_CRT_LINKAGE\s+dynamic\s*\)\s*$'
+          $pkgconfPattern = '(?m)^\s*set\(\s*VCPKG_ENV_PASSTHROUGH\s+PKG_CONFIG\s*\)\s*$'
+          $hasStaticLibraries = $triplet -match $staticPattern
+          $hasDynamicCrt = $triplet -match $dynamicCrtPattern
+          $hasPkgConfigPassthrough = $triplet -match $pkgconfPattern
+          $tripletIsValid = $hasStaticLibraries -and $hasDynamicCrt -and $hasPkgConfigPassthrough
+          if (!$tripletIsValid) {
             Write-Error "Triplet thiếu static libraries, dynamic CRT hoặc PKG_CONFIG passthrough."
             Get-Content $tripletFile
             exit 1
