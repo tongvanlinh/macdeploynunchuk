@@ -38,19 +38,47 @@ jobs:
         run: |
           echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
           echo "Homebrew prefix = $(brew --prefix) (arch: ${{ matrix.arch }})"
-      - name: Checkout HWI
+      - name: Build HWI native
         working-directory: ${{runner.workspace}}
         run: |
+          set -euo pipefail
           xcode-select -p
           xcodebuild -version
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-          job_runs_id="31357188694"
-          gh run download $job_runs_id -n "hwi_macos.zip" --repo hadvluffy/macdeploynunchuk
-          unzip hwi_macos.zip
-          echo "ls -l"
-          ls -l 
-          echo "ls -l hwi_macos"
-          ls -l hwi_macos
+          test "$(uname -m)" = "${{ matrix.arch }}"
+
+          # Build trực tiếp từ source để không phụ thuộc artifact của workflow khác.
+          # Runner của từng matrix là native nên HWI sinh ra đúng x86_64/arm64.
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install pyenv pyenv-virtualenv libusb
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          pyenv install -s 3.9
+          pyenv global 3.9
+
+          git clone --depth 1 --branch 3.2.0-displayaddress \
+            https://github.com/nogibi/HWI.git hwi-source
+          cd hwi-source
+          HWI_COMMIT=$(git rev-parse HEAD)
+          if [ "$HWI_COMMIT" != "8d035894a35042d5e8b2936faf140e03518bc4db" ]; then
+            echo "Unexpected HWI commit: $HWI_COMMIT"
+            exit 1
+          fi
+          ./contrib/build_bin.sh --without-gui
+
+          HWI_BINARY=$(find "$PWD/dist" -path '*.tar.gz.dir/hwi' -type f -perm -111 -print -quit)
+          test -x "$HWI_BINARY"
+          mkdir -p "${{runner.workspace}}/hwi_macos"
+          install -m 0755 "$HWI_BINARY" "${{runner.workspace}}/hwi_macos/hwi"
+
+          HWI_ARCHS=$(lipo -archs "${{runner.workspace}}/hwi_macos/hwi")
+          echo "HWI architectures: $HWI_ARCHS"
+          if ! lipo "${{runner.workspace}}/hwi_macos/hwi" -verify_arch "${{ matrix.arch }}"; then
+            echo "HWI architecture mismatch: expected ${{ matrix.arch }}, got $HWI_ARCHS"
+            exit 1
+          fi
+          "${{runner.workspace}}/hwi_macos/hwi" --version
+          "${{runner.workspace}}/hwi_macos/hwi" enumerate
           
       - name: Checkout nunchuk-qt
         working-directory: ${{runner.workspace}}
@@ -125,13 +153,135 @@ jobs:
           CORES=$(sysctl -n hw.ncpu)
           ./b2 install -j$CORES --prefix=$HOME/boost-1.81.0
           
-      - name: Brew install remaining deps
+      # Khóa cùng libevent 2.1.12 đang dùng trên Windows; không lấy bản rolling
+      # từ Homebrew để tránh kết quả thay đổi theo image của GitHub runner.
+      - name: Build and install libevent 2.1.12
+        working-directory: ${{ runner.temp }}
         run: |
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          # berkeley-db@4 được tham chiếu trong LDFLAGS/CPPFLAGS. Trên Intel có thể
-          # sẵn, nhưng trên arm64 thường thiếu -> cài tường minh cho cả 2 kiến trúc.
-          brew install libolm libevent berkeley-db@4
+          set -euo pipefail
+          LIBEVENT_VERSION="2.1.12"
+          LIBEVENT_SHA256="92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb"
+          LIBEVENT_ARCHIVE="$RUNNER_TEMP/libevent-$LIBEVENT_VERSION-stable.tar.gz"
+          LIBEVENT_SOURCE="$RUNNER_TEMP/libevent-$LIBEVENT_VERSION-stable"
+          LIBEVENT_BUILD="$RUNNER_TEMP/libevent-$LIBEVENT_VERSION-build"
+          LIBEVENT_PREFIX="$RUNNER_TEMP/libevent-$LIBEVENT_VERSION-install"
+
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            --retry 5 \
+            "https://github.com/libevent/libevent/releases/download/release-$LIBEVENT_VERSION-stable/libevent-$LIBEVENT_VERSION-stable.tar.gz" \
+            --output "$LIBEVENT_ARCHIVE"
+          echo "$LIBEVENT_SHA256  $LIBEVENT_ARCHIVE" | shasum -a 256 -c -
+          tar -xzf "$LIBEVENT_ARCHIVE" -C "$RUNNER_TEMP"
+
+          cmake -S "$LIBEVENT_SOURCE" -B "$LIBEVENT_BUILD" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$LIBEVENT_PREFIX" \
+            -DCMAKE_C_COMPILER="$(xcrun --find clang)" \
+            -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DEVENT__LIBRARY_TYPE=STATIC \
+            -DEVENT__DISABLE_OPENSSL=ON \
+            -DEVENT__DISABLE_BENCHMARK=ON \
+            -DEVENT__DISABLE_TESTS=ON \
+            -DEVENT__DISABLE_REGRESS=ON \
+            -DEVENT__DISABLE_SAMPLES=ON
+          cmake --build "$LIBEVENT_BUILD" --parallel "$(sysctl -n hw.ncpu)"
+          cmake --install "$LIBEVENT_BUILD"
+
+          test -f "$LIBEVENT_PREFIX/include/event2/event.h"
+          test -f "$LIBEVENT_PREFIX/lib/libevent.a"
+          test -f "$LIBEVENT_PREFIX/lib/cmake/libevent/LibeventConfig.cmake"
+          lipo "$LIBEVENT_PREFIX/lib/libevent.a" -verify_arch "${{ matrix.arch }}"
+          echo "LIBEVENT_PREFIX=$LIBEVENT_PREFIX" >> "$GITHUB_ENV"
+
+      # berkeley-db@4 cũng đã bị Homebrew disable. Dùng installer bất biến từ
+      # Bitcoin Core v24.2; installer tự khóa BDB 4.8.30.NC và checksum source.
+      - name: Build and install Berkeley DB 4.8.30.NC
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          BDB_INSTALLER_COMMIT="d3a352256064d62a3e2e2d054ffa0faecb49dd71"
+          BDB_INSTALLER_SHA256="1fe15c16d418f9c0dd0319e4982af8e4fc2f3e66b554df6a1004ee8732362d19"
+          BDB_BUILD_ROOT="$RUNNER_TEMP/bdb-4.8.30.NC"
+          BDB_INSTALLER="$RUNNER_TEMP/install_db4.sh"
+          BDB_PREFIX="$BDB_BUILD_ROOT/db4"
+
+          curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+            --retry 5 \
+            "https://raw.githubusercontent.com/bitcoin/bitcoin/$BDB_INSTALLER_COMMIT/contrib/install_db4.sh" \
+            --output "$BDB_INSTALLER"
+          echo "$BDB_INSTALLER_SHA256  $BDB_INSTALLER" | shasum -a 256 -c -
+          chmod +x "$BDB_INSTALLER"
+
+          # macOS mới có /sbin/sha256sum nhưng CLI không tương thích GNU `-c`.
+          # Buộc installer dùng /usr/bin/shasum sau khi đã xác minh checksum script.
+          sed -i '' \
+            -e 's/if check_exists sha256sum; then/if false; then/' \
+            -e 's/elif check_exists sha256; then/elif false; then/' \
+            -e 's/tar -xzvf/tar -xzf/' \
+            -e 's/^make install$/make libdb_cxx-4.8.a libdb-4.8.a install_lib install_include/' \
+            -e "s|^CONFIG_GUESS_URL=.*|CONFIG_GUESS_URL='https://raw.githubusercontent.com/bitcoin/bitcoin/$BDB_INSTALLER_COMMIT/depends/config.guess'|" \
+            -e "s|^CONFIG_SUB_URL=.*|CONFIG_SUB_URL='https://raw.githubusercontent.com/bitcoin/bitcoin/$BDB_INSTALLER_COMMIT/depends/config.sub'|" \
+            "$BDB_INSTALLER"
+          grep -Fq 'if false; then' "$BDB_INSTALLER"
+          grep -Fq 'elif false; then' "$BDB_INSTALLER"
+          grep -Fq 'make libdb_cxx-4.8.a libdb-4.8.a install_lib install_include' "$BDB_INSTALLER"
+          grep -Fq "bitcoin/$BDB_INSTALLER_COMMIT/depends/config.guess" "$BDB_INSTALLER"
+          grep -Fq "bitcoin/$BDB_INSTALLER_COMMIT/depends/config.sub" "$BDB_INSTALLER"
+          mkdir -p "$BDB_BUILD_ROOT"
+
+          # Khóa compiler/toolchain và target theo từng runner native.
+          export CC="$(xcrun --find clang)"
+          export CXX="$(xcrun --find clang++)"
+          export CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -Wno-error=implicit-function-declaration -Wno-error=format-security -Wno-error=implicit-int -Wno-deprecated-non-prototype"
+          export CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
+          export LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
+          export MAKEFLAGS="-j1 -s"
+          "$BDB_INSTALLER" "$BDB_BUILD_ROOT"
+
+          test -f "$BDB_PREFIX/include/db_cxx.h"
+          test -f "$BDB_PREFIX/lib/libdb_cxx-4.8.a"
+          lipo "$BDB_PREFIX/lib/libdb_cxx-4.8.a" -verify_arch "${{ matrix.arch }}"
+          echo "BDB_PREFIX=$BDB_PREFIX" >> "$GITHUB_ENV"
+
+      # libolm đã bị Homebrew remove sau khi upstream deprecated. Build đúng bản
+      # 3.2.16 và khóa commit để kết quả không phụ thuộc metadata của host runner.
+      - name: Build and install Olm 3.2.16
+        working-directory: ${{ runner.workspace }}
+        run: |
+          set -euo pipefail
+          OLM_VERSION="3.2.16"
+          OLM_COMMIT="7e0c8277032e40308987257b711b38af8d77cc69"
+          OLM_PREFIX="$HOME/.local/olm-$OLM_VERSION"
+
+          git clone --depth 1 --branch "$OLM_VERSION" \
+            https://gitlab.matrix.org/matrix-org/olm.git olm-source
+          cd olm-source
+          test "$(git rev-parse HEAD)" = "$OLM_COMMIT"
+
+          # Clang 17 từ Xcode 16.4 bắt đúng lỗi const pointer trong Olm 3.2.16.
+          # Sửa const-correctness tối thiểu trước khi build.
+          sed -i '' \
+            's/T \* const other_pos = other\._data;/T const * other_pos = other._data;/' \
+            include/olm/list.hh
+          grep -Fq 'T const * other_pos = other._data;' include/olm/list.hh
+
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$OLM_PREFIX" \
+            -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DOLM_TESTS=OFF
+          cmake --build build --parallel "$(sysctl -n hw.ncpu)"
+          cmake --install build
+
+          test -f "$OLM_PREFIX/lib/cmake/Olm/OlmConfig.cmake"
+          test -f "$OLM_PREFIX/lib/libolm.a"
+          lipo "$OLM_PREFIX/lib/libolm.a" -verify_arch "${{ matrix.arch }}"
+          echo "OLM_PREFIX=$OLM_PREFIX" >> "$GITHUB_ENV"
       
       - name: Install Qt 6.9.3
         uses: jurplel/install-qt-action@v4
@@ -149,7 +299,7 @@ jobs:
           #  - qt5compat -> QML "import Qt5Compat.GraphicalEffects" (thay QtGraphicalEffects
           #    của Qt5). Đây là import QML-only, KHÔNG xuất hiện trong find_package,
           #    nhưng thiếu thì QML gốc load fail -> app trắng màn hình.
-          modules: 'qtmultimedia qtwebengine qtwebchannel qtpositioning qt5compat qtshadertools qtnetworkauth'
+          modules: 'qtmultimedia qtwebengine qtwebchannel qtpositioning qt5compat qtshadertools'
 
       - name: Configure Qt6 paths
         run: |
@@ -157,7 +307,7 @@ jobs:
           # KHÔNG còn là "clang_64" như Qt5.
           QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
           echo "QTPATH=$QTPATH" >> $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=$QTPATH/lib/cmake" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$QTPATH/lib/cmake;$OLM_PREFIX;$LIBEVENT_PREFIX;$BDB_PREFIX;$BREW_PREFIX" >> $GITHUB_ENV
           echo "PATH=$QTPATH/bin:$PATH" >> $GITHUB_ENV
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
@@ -204,8 +354,8 @@ jobs:
           set -e
           QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
           export PATH="$QTPATH/bin:$PATH"
-          export LDFLAGS="$LDFLAGS -L$QTPATH/lib -L$HOME/boost-1.81.0/lib -L$BREW_PREFIX/opt/berkeley-db@4/lib"
-          export CPPFLAGS="$CPPFLAGS -I$QTPATH/include -I$HOME/boost-1.81.0/include -I$BREW_PREFIX/opt/berkeley-db@4/include -I$OPENSSL_ROOT_DIR/include"
+          export LDFLAGS="$LDFLAGS -L$QTPATH/lib -L$HOME/boost-1.81.0/lib -L$BDB_PREFIX/lib -L$LIBEVENT_PREFIX/lib"
+          export CPPFLAGS="$CPPFLAGS -I$QTPATH/include -I$HOME/boost-1.81.0/include -I$BDB_PREFIX/include -I$LIBEVENT_PREFIX/include -I$OPENSSL_ROOT_DIR/include"
           export BOOST_ROOT="$HOME/boost-1.81.0"
           export CXXFLAGS="$CXXFLAGS -O0"
           export CFLAGS="$CFLAGS -O0"
@@ -213,14 +363,15 @@ jobs:
           cd build
           cmake ${{runner.workspace}}/nunchuk-qt \
                 -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_PREFIX_PATH="$QTPATH/lib/cmake;$BREW_PREFIX" \
+                -DCMAKE_PREFIX_PATH="$QTPATH/lib/cmake;$OLM_PREFIX;$LIBEVENT_PREFIX;$BDB_PREFIX;$BREW_PREFIX" \
+                -Devent_lib:FILEPATH="$LIBEVENT_PREFIX/lib/libevent.a" \
                 -DUR__DISABLE_TESTS=ON \
                 -DBOOST_ROOT=$HOME/boost-1.81.0 \
                 -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
                 -DCMAKE_C_FLAGS_RELEASE="$CFLAGS" \
                 -DCMAKE_CXX_FLAGS_RELEASE="$CXXFLAGS" \
                 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
-                -DAPPEND_CPPFLAGS="-I$(brew --prefix libevent)/include"
+                -DAPPEND_CPPFLAGS="-I$LIBEVENT_PREFIX/include"
           CORES=$(sysctl -n hw.ncpu)
           cmake --build . --config Release -j$CORES
           
@@ -234,8 +385,8 @@ jobs:
           # Dùng macdeployqt của Qt6 vừa cài (QTPATH set ở bước Configure Qt6 paths),
           # KHÔNG dùng Homebrew qt@5.
           export PATH="$QTPATH/bin:$PATH"
-          export LDFLAGS="$LDFLAGS -L$QTPATH/lib -L$HOME/boost-1.81.0/lib -L$BREW_PREFIX/opt/berkeley-db@4/lib"
-          export CPPFLAGS="$CPPFLAGS -I$QTPATH/include -I$HOME/boost-1.81.0/include -I$BREW_PREFIX/opt/berkeley-db@4/include -I$OPENSSL_ROOT_DIR/include"
+          export LDFLAGS="$LDFLAGS -L$QTPATH/lib -L$HOME/boost-1.81.0/lib -L$BDB_PREFIX/lib -L$LIBEVENT_PREFIX/lib"
+          export CPPFLAGS="$CPPFLAGS -I$QTPATH/include -I$HOME/boost-1.81.0/include -I$BDB_PREFIX/include -I$LIBEVENT_PREFIX/include -I$OPENSSL_ROOT_DIR/include"
           export BOOST_ROOT="$HOME/boost-1.81.0"
           which macdeployqt
           find ${{runner.workspace}} -name "Nunchuk.app"
@@ -365,8 +516,10 @@ jobs:
           codesign --remove-signature "$APP_PATH/Contents/MacOS/Nunchuk"
           codesign --force --deep --verify --options=runtime --verbose --timestamp --entitlements "$ENTITLEMENTS" -s "$MACOS_CERTIFICATE_NAME" "$APP_PATH/Contents/MacOS/Nunchuk" -vvv
           
-          echo "Copy hwi"
-          cp "${{runner.workspace}}/hwi_macos/hwi" "$APP_PATH/Contents/MacOS/hwi"
+          echo "Copy and sign HWI"
+          install -m 0755 "${{runner.workspace}}/hwi_macos/hwi" "$APP_PATH/Contents/MacOS/hwi"
+          codesign --force --options=runtime --timestamp --entitlements "$ENTITLEMENTS_HWI" -s "$MACOS_CERTIFICATE_NAME" "$APP_PATH/Contents/MacOS/hwi"
+          codesign --verify --strict --verbose=4 "$APP_PATH/Contents/MacOS/hwi"
 
           #echo "Signing QWebengineProcess executables..."
           #HELPER_PATH="$APP_PATH/Contents/Frameworks/QtWebEngineCore.framework/Versions/5/Helpers/QtWebEngineProcess.app"
