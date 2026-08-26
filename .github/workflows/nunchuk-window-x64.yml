@@ -1518,14 +1518,44 @@ jobs:
             exit 1
           }
 
-          $iscc = Get-Item -LiteralPath $isccPath
+          # ISCC.exe 6.7.1 có FileVersion=0.0.0.0. Chạy compile probe để lấy
+          # version từ compiler engine thật, đồng thời kiểm tra các DLL đi kèm.
+          $probeScriptPath = Join-Path $env:RUNNER_TEMP `
+            'inno-version-probe.iss'
+          $probeScript = @'
+          [Setup]
+          AppName=InnoVersionProbe
+          AppVersion=1.0
+          DefaultDirName={tmp}\InnoVersionProbe
+          PrivilegesRequired=lowest
+          Uninstallable=no
+          '@
+          Set-Content -LiteralPath $probeScriptPath -Value $probeScript `
+            -Encoding utf8
+
+          $compilerOutput = @(& $isccPath '/O-' $probeScriptPath 2>&1)
+          $compilerExitCode = $LASTEXITCODE
+          $compilerOutput | ForEach-Object { Write-Host $_ }
+          if ($compilerExitCode -ne 0) {
+            Write-Error "ISCC compile probe thất bại với exit code $compilerExitCode"
+            exit 1
+          }
+
+          $compilerText = ($compilerOutput | ForEach-Object {
+            [string]$_
+          }) -join "`n"
           $versionMatch = [regex]::Match(
-            [string]$iscc.VersionInfo.FileVersion,
-            '^(\d+\.\d+\.\d+)'
+            $compilerText,
+            '(?m)^Compiler engine version:\s+Inno Setup\s+(\d+\.\d+\.\d+(?:\.\d+)?)[^\S\r\n]*\r?$'
           )
           if (!$versionMatch.Success -or
               $versionMatch.Groups[1].Value -cne $env:INNO_SETUP_VERSION) {
-            Write-Error "ISCC version sai: expected=$env:INNO_SETUP_VERSION actual='$($iscc.VersionInfo.FileVersion)'"
+            $actualVersion = if ($versionMatch.Success) {
+              $versionMatch.Groups[1].Value
+            } else {
+              '<không đọc được từ compiler output>'
+            }
+            Write-Error "ISCC engine version sai: expected=$env:INNO_SETUP_VERSION actual='$actualVersion'"
             exit 1
           }
 
