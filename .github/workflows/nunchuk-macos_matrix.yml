@@ -312,6 +312,7 @@ jobs:
         with:
           version: '6.9.3'
           host: 'mac'
+          dir: ${{ runner.workspace }}/Qt
           # Module theo find_package(Qt6 ...) trong CMakeLists.txt của nunchuk-qt.
           # Các component còn lại (Core/CorePrivate/Gui/Widgets/Concurrent/Network/
           # Sql/PrintSupport = qtbase; Qml/Quick/QuickControls2 = qtdeclarative;
@@ -328,9 +329,9 @@ jobs:
 
       - name: Configure Qt6 paths
         run: |
-          # Qt6 trên macOS dùng thư mục kiến trúc "macos" (universal x86_64+arm64),
-          # KHÔNG còn là "clang_64" như Qt5.
-          QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
+          # Lấy đúng thư mục thực tế do install-qt-action export. github.workspace
+          # nằm sâu hơn runner.workspace một cấp nên không được tự ghép đường dẫn.
+          QTPATH="${QT_ROOT_DIR:?install-qt-action không export QT_ROOT_DIR}"
           test -f "$QTPATH/lib/cmake/Qt6NetworkAuth/Qt6NetworkAuthConfig.cmake"
           echo "QTPATH=$QTPATH" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$QTPATH/lib/cmake;$OLM_PREFIX;$LIBEVENT_PREFIX;$BDB_PREFIX;$BREW_PREFIX" >> $GITHUB_ENV
@@ -338,7 +339,7 @@ jobs:
       - name: Install qtkeychain
         working-directory: ${{runner.workspace}}
         run: |
-          QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
+          QTPATH="${QT_ROOT_DIR:?install-qt-action không export QT_ROOT_DIR}"
           git clone --depth 1 --branch 0.14.2 https://github.com/frankosterfeld/qtkeychain
           cd qtkeychain
           mkdir build && cd build
@@ -378,7 +379,7 @@ jobs:
           OAUTH_CLIENT_ID: ${{ secrets.OAUTH_CLIENT_ID }}
         run: |
           set -e
-          QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
+          QTPATH="${QT_ROOT_DIR:?install-qt-action không export QT_ROOT_DIR}"
           export PATH="$QTPATH/bin:$PATH"
           export LDFLAGS="$LDFLAGS -L$QTPATH/lib -L$HOME/boost-1.81.0/lib -L$BDB_PREFIX/lib -L$LIBEVENT_PREFIX/lib"
           export CPPFLAGS="$CPPFLAGS -I$QTPATH/include -I$HOME/boost-1.81.0/include -I$BDB_PREFIX/include -I$LIBEVENT_PREFIX/include -I$OPENSSL_ROOT_DIR/include"
