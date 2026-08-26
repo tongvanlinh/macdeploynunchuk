@@ -7,11 +7,14 @@ env:
   CMAKE_VERSION: '3.31.0'
   CMAKE_WINDOWS_SHA256: 'f4b499f71cf44115a1d711d4867da3c6bd2f3f4d7121c213ace979757640385c'
   PYTHON_VERSION: '3.11.9'
+  PIP_VERSION: '26.2.1'
   AQTINSTALL_VERSION: '3.3.0'
   PY7ZR_VERSION: '1.1.0'
-  # Ninja 1.13.0 có regression response-file với MSVC:
+  # 1.11.1.2 sửa WHEEL metadata lỗi của 1.11.1.1 nhưng giữ binary 1.11.1.
+  # https://github.com/pypa/pip/issues/12884
+  # Không dùng Ninja 1.13.0 vì có regression response-file với MSVC:
   # https://github.com/ninja-build/ninja/issues/2616
-  NINJA_VERSION: '1.11.1.1'
+  NINJA_VERSION: '1.11.1.2'
   NINJA_BINARY_VERSION: '1.11.1.git.kitware.jobserver-1'
   MSVC_VERSION: '2022'
   MSVC_TOOLSET_VERSION: '14.44.35207'
@@ -196,6 +199,13 @@ jobs:
             exit 1
           }
 
+          python -m pip install --disable-pip-version-check `
+            "pip==$env:PIP_VERSION"
+          $pipBootstrapExitCode = $LASTEXITCODE
+          if ($pipBootstrapExitCode -ne 0) {
+            exit $pipBootstrapExitCode
+          }
+
           python -m pip install `
             "aqtinstall==$env:AQTINSTALL_VERSION" `
             "py7zr==$env:PY7ZR_VERSION" `
@@ -207,7 +217,7 @@ jobs:
           if ($pipCheckExitCode -ne 0) { exit $pipCheckExitCode }
 
           $packageOutput = @(
-            & python -c "import importlib.metadata as m, json; print(json.dumps({p: m.version(p) for p in ('aqtinstall', 'py7zr', 'ninja')}))" 2>&1
+            & python -c "import importlib.metadata as m, json; print(json.dumps({p: m.version(p) for p in ('pip', 'aqtinstall', 'py7zr', 'ninja')}))" 2>&1
           )
           $packageExitCode = $LASTEXITCODE
           $packageLine = `
@@ -223,6 +233,7 @@ jobs:
             exit 1
           }
           $expectedPackages = @{
+            pip = $env:PIP_VERSION
             aqtinstall = $env:AQTINSTALL_VERSION
             py7zr = $env:PY7ZR_VERSION
             ninja = $env:NINJA_VERSION
