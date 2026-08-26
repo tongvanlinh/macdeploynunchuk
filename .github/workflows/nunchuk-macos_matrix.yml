@@ -237,8 +237,38 @@ jobs:
           export CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -Wno-error=implicit-function-declaration -Wno-error=format-security -Wno-error=implicit-int -Wno-deprecated-non-prototype"
           export CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
           export LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
+          unset CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH \
+            OBJC_INCLUDE_PATH OBJCPLUS_INCLUDE_PATH
+          export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          export MACOSX_DEPLOYMENT_TARGET="13.0"
+          export CC="$(xcrun --sdk macosx --find clang)"
+          export CXX="$(xcrun --sdk macosx --find clang++)"
+          export AR="$(xcrun --sdk macosx --find ar)"
+          export RANLIB="$(xcrun --sdk macosx --find ranlib)"
+          export CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -isysroot $SDKROOT -Wno-error=implicit-function-declaration -Wno-error=format-security -Wno-error=implicit-int -Wno-deprecated-non-prototype"
+          export CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -isysroot $SDKROOT -stdlib=libc++"
+          export LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -isysroot $SDKROOT"
           export MAKEFLAGS="-j1 -s"
           "$BDB_INSTALLER" "$BDB_BUILD_ROOT"
+
+          # Fail sớm với log linker rõ ràng thay vì đợi Autoconf trả exit 77.
+          printf 'int main(void) { return 0; }\n' | \
+            "$CC" -arch "${{ matrix.arch }}" \
+              -mmacosx-version-min=13.0 -isysroot "$SDKROOT" \
+              -x c - -o "$RUNNER_TEMP/bdb-compiler-test"
+          "$RUNNER_TEMP/bdb-compiler-test"
+          lipo "$RUNNER_TEMP/bdb-compiler-test" -verify_arch "${{ matrix.arch }}"
+
+          if ! "$BDB_INSTALLER" "$BDB_BUILD_ROOT"; then
+            BDB_CONFIG_LOG="$BDB_PREFIX/db-4.8.30.NC/build_unix/config.log"
+            if [ -f "$BDB_CONFIG_LOG" ]; then
+              echo "::group::Berkeley DB config.log"
+              sed -n '130,240p' "$BDB_CONFIG_LOG"
+              tail -n 100 "$BDB_CONFIG_LOG"
+              echo "::endgroup::"
+            fi
+            exit 1
+          fi
 
           test -f "$BDB_PREFIX/include/db_cxx.h"
           test -f "$BDB_PREFIX/lib/libdb_cxx-4.8.a"
