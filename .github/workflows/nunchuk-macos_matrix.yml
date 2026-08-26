@@ -232,11 +232,6 @@ jobs:
           mkdir -p "$BDB_BUILD_ROOT"
 
           # Khóa compiler/toolchain và target theo từng runner native.
-          export CC="$(xcrun --find clang)"
-          export CXX="$(xcrun --find clang++)"
-          export CFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -Wno-error=implicit-function-declaration -Wno-error=format-security -Wno-error=implicit-int -Wno-deprecated-non-prototype"
-          export CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
-          export LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0"
           unset CPATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH LIBRARY_PATH \
             OBJC_INCLUDE_PATH OBJCPLUS_INCLUDE_PATH
           export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
@@ -249,7 +244,6 @@ jobs:
           export CXXFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -isysroot $SDKROOT -stdlib=libc++"
           export LDFLAGS="-arch ${{ matrix.arch }} -mmacosx-version-min=13.0 -isysroot $SDKROOT"
           export MAKEFLAGS="-j1 -s"
-          "$BDB_INSTALLER" "$BDB_BUILD_ROOT"
 
           # Fail sớm với log linker rõ ràng thay vì đợi Autoconf trả exit 77.
           printf 'int main(void) { return 0; }\n' | \
@@ -324,18 +318,20 @@ jobs:
           # Svg = qtsvg) đã nằm trong bản base nên không cần liệt kê.
           # Cần thêm qua -m:
           #  - qtmultimedia   -> Qt6::Multimedia
+          #  - qtnetworkauth  -> Qt6::NetworkAuth
           #  - qtwebengine    -> Qt6::WebEngineWidgets (USING_WEBENGINE=ON)
           #  - qtwebchannel + qtpositioning -> phụ thuộc bắt buộc của WebEngine
           #  - qt5compat -> QML "import Qt5Compat.GraphicalEffects" (thay QtGraphicalEffects
           #    của Qt5). Đây là import QML-only, KHÔNG xuất hiện trong find_package,
           #    nhưng thiếu thì QML gốc load fail -> app trắng màn hình.
-          modules: 'qtmultimedia qtwebengine qtwebchannel qtpositioning qt5compat qtshadertools'
+          modules: 'qtmultimedia qtnetworkauth qtwebengine qtwebchannel qtpositioning qt5compat qtshadertools'
 
       - name: Configure Qt6 paths
         run: |
           # Qt6 trên macOS dùng thư mục kiến trúc "macos" (universal x86_64+arm64),
           # KHÔNG còn là "clang_64" như Qt5.
           QTPATH="${{ github.workspace }}/Qt/6.9.3/macos"
+          test -f "$QTPATH/lib/cmake/Qt6NetworkAuth/Qt6NetworkAuthConfig.cmake"
           echo "QTPATH=$QTPATH" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$QTPATH/lib/cmake;$OLM_PREFIX;$LIBEVENT_PREFIX;$BDB_PREFIX;$BREW_PREFIX" >> $GITHUB_ENV
           echo "PATH=$QTPATH/bin:$PATH" >> $GITHUB_ENV
