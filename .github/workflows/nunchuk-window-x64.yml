@@ -497,6 +497,9 @@ jobs:
           set(VCPKG_PLATFORM_TOOLSET v143)
           set(VCPKG_PLATFORM_TOOLSET_VERSION "$env:MSVC_TOOLSET_VERSION")
           set(VCPKG_CMAKE_SYSTEM_VERSION "$env:WINDOWS_SDK_VERSION")
+          # vcpkg dùng clean environment khi build port trên Windows. Cho phép
+          # port libevent nhận native pkgconf đã pin thay vì tải MSYS2 rolling.
+          set(VCPKG_ENV_PASSTHROUGH PKG_CONFIG)
           "@ | Set-Content $tripletFile -Encoding ASCII
 
           & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
@@ -532,10 +535,18 @@ jobs:
           if ($triplet -notmatch 'VCPKG_LIBRARY_LINKAGE\s+static' -or `
               $triplet -notmatch 'VCPKG_CRT_LINKAGE\s+dynamic') {
             Write-Error "Triplet phải dùng static libraries + dynamic CRT (/MD)."
+          if ($triplet -notmatch `
+                '(?m)^\s*set\(\s*VCPKG_LIBRARY_LINKAGE\s+static\s*\)\s*$' -or `
+              $triplet -notmatch `
+                '(?m)^\s*set\(\s*VCPKG_CRT_LINKAGE\s+dynamic\s*\)\s*$' -or `
+              $triplet -notmatch `
+                '(?m)^\s*set\(\s*VCPKG_ENV_PASSTHROUGH\s+PKG_CONFIG\s*\)\s*$') {
+            Write-Error "Triplet thiếu static libraries, dynamic CRT hoặc PKG_CONFIG passthrough."
             Get-Content $tripletFile
             exit 1
           }
           Write-Host "vcpkg linkage: static libraries + dynamic CRT (/MD): PASS"
+          Write-Host "vcpkg triplet linkage + PKG_CONFIG passthrough: PASS"
 
           if ([string]::IsNullOrWhiteSpace($env:PINNED_PKG_CONFIG) -or `
               !(Test-Path $env:PINNED_PKG_CONFIG -PathType Leaf)) {
@@ -689,6 +700,8 @@ jobs:
           name: nunchuk-windows-x64-vcpkg-libevent-logs
           path: |
             vcpkg/buildtrees/libevent/**
+            vcpkg/buildtrees/libevent/**/*.log
+            vcpkg/buildtrees/libevent/**/*.txt
             vcpkg/installed/vcpkg/issue_body.md
           if-no-files-found: warn
           retention-days: 14
