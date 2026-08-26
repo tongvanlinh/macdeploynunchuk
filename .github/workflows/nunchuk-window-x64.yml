@@ -535,6 +535,8 @@ jobs:
           if ($triplet -notmatch 'VCPKG_LIBRARY_LINKAGE\s+static' -or `
               $triplet -notmatch 'VCPKG_CRT_LINKAGE\s+dynamic') {
             Write-Error "Triplet phải dùng static libraries + dynamic CRT (/MD)."
+            exit 1
+          }
           $staticPattern = '(?m)^\s*set\(\s*VCPKG_LIBRARY_LINKAGE\s+static\s*\)\s*$'
           $dynamicCrtPattern = '(?m)^\s*set\(\s*VCPKG_CRT_LINKAGE\s+dynamic\s*\)\s*$'
           $pkgconfPattern = '(?m)^\s*set\(\s*VCPKG_ENV_PASSTHROUGH\s+PKG_CONFIG\s*\)\s*$'
@@ -701,7 +703,6 @@ jobs:
         with:
           name: nunchuk-windows-x64-vcpkg-libevent-logs
           path: |
-            vcpkg/buildtrees/libevent/**
             vcpkg/buildtrees/libevent/**/*.log
             vcpkg/buildtrees/libevent/**/*.txt
             vcpkg/installed/vcpkg/issue_body.md
