@@ -627,6 +627,8 @@ jobs:
           # Không dùng `vcpkg integrate install`: CMake đã nhận toolchain file
           # rõ ràng, tránh tác động global và lỗi dọn thư mục Temp trên runner.
           $installedPackages = & "$env:VCPKG_ROOT\vcpkg.exe" list
+          # Ghi đè bằng output đầy đủ vì lệnh mặc định cắt version dài thành `...`.
+          $installedPackages = & "$env:VCPKG_ROOT\vcpkg.exe" list --x-full-desc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $installedPackages | ForEach-Object { Write-Host $_ }
           $libeventPattern = '^libevent:' + `
